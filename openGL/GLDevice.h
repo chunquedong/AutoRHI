@@ -9,7 +9,7 @@
 #define STRVIEW(X) GLPUStringView{X, sizeof(X) - 1}
 #endif
 
-namespace mrhi {
+namespace arhi {
 
 class GLDevice : public GraphicsDevice {
 public:

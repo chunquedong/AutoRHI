@@ -3,7 +3,7 @@
 #include "VKDevice.h"
 #include "VKCommandEncoder.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 VKSurface::~VKSurface() {
 	VkDevice device = this->device->device;

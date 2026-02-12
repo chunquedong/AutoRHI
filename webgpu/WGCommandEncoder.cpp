@@ -3,7 +3,7 @@
 #include "WGPipeline.h"
 #include "WGTexture.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 void WGCommandEncoder::init(WGDevice* device, const CommandEncoderDesc* desc) {
     this->device = device;
@@ -120,10 +120,10 @@ void WGBindingGroup::init(WGDevice* device, const BindingGroupDesc* desc)
     WGPipeline* pipeline = dynamic_cast<WGPipeline*>(desc->pipeline);
     
     //index sresource
-    std::map<std::string, Resource*> resourceMap;
+    std::map<std::string, const BindingEntry*> resourceMap;
     for (auto it = desc->resources.begin(); it != desc->resources.end(); ++it) {
-        const BindingEntry& entry = *it;
-        resourceMap[entry.name] = entry.resource;
+        const BindingEntry* entry = &(*it);
+        resourceMap[entry->name] = entry;
     }
 
     //init bindingGroup by uniform order
@@ -135,8 +135,8 @@ void WGBindingGroup::init(WGDevice* device, const BindingGroupDesc* desc)
             MGP_ERROR("ERROR unknow binding resource: %s\n", uniform.name.c_str());
             continue;
         }
-        int binding = uniform.binding;
-        Resource* resource = found->second;
+        int binding = uniform.binding + found->second->offset;
+        Resource* resource = found->second->resource;
 
         if (WGTexture* tex = dynamic_cast<WGTexture*>(resource)) {
             WGPUBindGroupEntry entry = {

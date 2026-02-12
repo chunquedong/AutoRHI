@@ -4,7 +4,7 @@
 #include "rhi/Shader.h"
 #include "rhi/Resource.h"
 
-namespace mrhi {
+namespace arhi {
 
 bool compileGLSL(const char* source, ShaderStage stage, std::vector<uint32_t>& spirvSource);
 bool spirvReflect(std::vector<uint32_t>& spirvSource, ShaderModuleReflection& reflection);

@@ -4,7 +4,7 @@
 #include "rhi/GraphicsDevice.h"
 #include <webgpu/webgpu.h>
 
-namespace mrhi {
+namespace arhi {
 
 class WGDevice : public GraphicsDevice {
 public:

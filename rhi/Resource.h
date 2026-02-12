@@ -3,7 +3,7 @@
 
 #include "rhi_common.h"
 
-namespace mrhi {
+namespace arhi {
 
 struct Resource {
     virtual ~Resource() {}

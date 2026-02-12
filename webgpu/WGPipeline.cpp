@@ -3,7 +3,7 @@
 
 #include <map>
 
-using namespace mrhi;
+using namespace arhi;
 
 
 void WGPipeline::buildBindGroupLayoutList(WGDevice* adevice) {

@@ -3,7 +3,7 @@
 
 #include "GLDevice.h"
 
-namespace mrhi {
+namespace arhi {
 
 class GLSurface;
 class GLSampler;

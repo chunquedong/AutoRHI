@@ -2,9 +2,9 @@
 
 #define VMA_IMPLEMENTATION
 #define VMA_MIN_ALIGNMENT 32
-#include "vk_mem_alloc.h"
+#include "external/vk_mem_alloc.h"
 
-namespace mrhi {
+namespace arhi {
 
 const std::string to_string(VkResult result)
 {

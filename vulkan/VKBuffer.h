@@ -3,7 +3,7 @@
 
 #include "VKDevice.h"
 
-namespace mrhi {
+namespace arhi {
 
 class VKBuffer : public Buffer {
     VKDevice* device = nullptr;

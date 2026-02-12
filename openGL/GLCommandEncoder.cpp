@@ -3,7 +3,7 @@
 #include "GLPipeline.h"
 #include "GLTexture.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 void GLCommandEncoder::init(GLDevice* device, const CommandEncoderDesc* desc) {
     this->device = device;
@@ -220,7 +220,7 @@ void GLBindingGroup::bind()
         if (GLTexture* tex = dynamic_cast<GLTexture*>(entry.resource)) {
             //GP_ASSERT((sampler->getType() == Texture::TEXTURE_2D && uniform->_type == GL_SAMPLER_2D) ||
             //    (sampler->getType() == Texture::TEXTURE_CUBE && uniform->_type == GL_SAMPLER_CUBE));
-            int unit = found->second.binding;
+            int unit = found->second.binding + entry.offset;
             int location = found->second.glLocation;
             GL_ASSERT(glActiveTexture(GL_TEXTURE0 + unit));
             // Bind the sampler - this binds the texture and applies sampler state
@@ -228,7 +228,7 @@ void GLBindingGroup::bind()
             GL_ASSERT(glUniform1i(location, unit));
         }
         else if (GLSampler* tex = dynamic_cast<GLSampler*>(entry.resource)) {
-            int unit = found->second.binding;
+            int unit = found->second.binding + entry.offset;
             int location = found->second.glLocation;
 
             GL_ASSERT(glActiveTexture(GL_TEXTURE0 + unit));

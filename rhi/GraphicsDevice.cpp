@@ -1,7 +1,7 @@
 
 #include "GraphicsDevice.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 GraphicsDevice* g_graphicsDevice = NULL;
 

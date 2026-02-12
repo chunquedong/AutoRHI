@@ -1,7 +1,7 @@
 #include "GLDevice.h"
 #include "GLCommandEncoder.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 extern GraphicsDevice* g_graphicsDevice;
 

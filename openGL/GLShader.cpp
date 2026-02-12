@@ -1,6 +1,6 @@
 #include "GLShader.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 GLShader* GLShader::create(GLDevice* device, const ShaderDesc* d) {
     

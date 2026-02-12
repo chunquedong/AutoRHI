@@ -5,7 +5,7 @@
 #include "VKUtil.h"
 
 
-namespace mrhi {
+namespace arhi {
 
 class VKDevice : public GraphicsDevice {
 public:

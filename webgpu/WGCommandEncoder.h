@@ -7,7 +7,7 @@
 #include "WGTexture.h"
 #include "WGBuffer.h"
 
-namespace mrhi {
+namespace arhi {
 
 class WGBindingGroup : public BindingGroup {
 public:

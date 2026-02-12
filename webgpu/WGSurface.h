@@ -3,7 +3,7 @@
 
 #include "WGDevice.h"
 
-namespace mrhi {
+namespace arhi {
 
 class WGTexture;
 

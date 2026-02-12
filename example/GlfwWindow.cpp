@@ -45,7 +45,7 @@
 #  include <GLFW/glfw3native.h>
 #endif
 
-using namespace mrhi;
+using namespace arhi;
 
 GlfwWindow* g_window = nullptr;
 

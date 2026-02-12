@@ -4,7 +4,7 @@
 #include "GLDevice.h"
 #include "GLShader.h"
 
-namespace mrhi {
+namespace arhi {
 
 class GLPipeline : public Pipeline {
 public:

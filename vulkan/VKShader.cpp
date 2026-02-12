@@ -2,7 +2,7 @@
 
 #include "spirv/rhi_spirv.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 
 VKShader* VKShader::create(VKDevice* device, const ShaderDesc* d) {

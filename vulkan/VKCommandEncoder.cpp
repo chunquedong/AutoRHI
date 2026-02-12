@@ -3,7 +3,7 @@
 #include "VKPipeline.h"
 #include "VKTexture.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 void VKCommandEncoder::init(VKDevice* device, const CommandEncoderDesc* desc) {
     this->device = device;
@@ -220,10 +220,10 @@ void VKBindingGroup::init(VKDevice* device, const BindingGroupDesc* desc)
 	pipelineLayout = pipeline->pipelineLayout;
     
     //index sresource
-    std::map<std::string, Resource*> resourceMap;
+    std::map<std::string, const BindingEntry*> resourceMap;
     for (auto it = desc->resources.begin(); it != desc->resources.end(); ++it) {
-        const BindingEntry& entry = *it;
-        resourceMap[entry.name] = entry.resource;
+        const BindingEntry* entry = &(*it);
+        resourceMap[entry->name] = entry;
     }
     
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -244,8 +244,8 @@ void VKBindingGroup::init(VKDevice* device, const BindingGroupDesc* desc)
 			MGP_ERROR("ERROR unknow binding resource: %s\n", uniform.name.c_str());
 			continue;
 		}
-		int binding = uniform.binding;
-		Resource* resource = found->second;
+		int binding = uniform.binding + found->second->offset;
+		Resource* resource = found->second->resource;
 
 		if (VKTexture* tex = dynamic_cast<VKTexture*>(resource)) {
 			VkDescriptorImageInfo imageInfo{};

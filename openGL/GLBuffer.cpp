@@ -1,6 +1,6 @@
 #include "GLBuffer.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 void GLBuffer::init(GLDevice* device, const BufferDesc* desc) {
     this->device = device;

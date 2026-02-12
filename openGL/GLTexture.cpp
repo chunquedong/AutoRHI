@@ -1,6 +1,6 @@
 #include "GLTexture.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 GLint getFormatInternal(TextureFormat format)
 {

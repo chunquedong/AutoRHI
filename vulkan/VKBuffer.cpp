@@ -1,6 +1,6 @@
 #include "VKBuffer.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 void VKBuffer::init(VKDevice* device, const BufferDesc& desc) {
     this->device = device;

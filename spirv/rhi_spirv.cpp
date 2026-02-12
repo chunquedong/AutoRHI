@@ -7,7 +7,7 @@
 #include "spirv_reflect.h"
 
 
-namespace mrhi {
+namespace arhi {
 
 static EShLanguage wgpuShaderStageToGlslang(ShaderStage stage){
     if(stage == ShaderStage::Vertex) return EShLangVertex;

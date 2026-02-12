@@ -1,8 +1,8 @@
 #ifndef WINDOW_H_
 #define WINDOW_H_
 
-#define VULKAN
-#define WEBGPU
+//#define VULKAN
+//#define WEBGPU
 
 #ifdef VULKAN
 #include "vulkan/VKUtil.h"
@@ -12,7 +12,7 @@ struct WGPUChainedStruct;
 struct GLFWwindow;
 
 
-namespace mrhi {
+namespace arhi {
 
 class GlfwWindow {
     GLFWwindow* window = nullptr;

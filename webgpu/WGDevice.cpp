@@ -1,7 +1,7 @@
 #include "WGDevice.h"
 #include "WGCommandEncoder.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 extern GraphicsDevice* g_graphicsDevice;
 

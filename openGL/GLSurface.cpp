@@ -2,7 +2,7 @@
 #include "GLTexture.h"
 #include "GLCommandEncoder.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 GLSurface::~GLSurface() {
 }

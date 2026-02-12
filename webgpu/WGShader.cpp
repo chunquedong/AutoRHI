@@ -2,7 +2,7 @@
 
 #include "spirv/rhi_spirv.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 static void reflectionCallback(WGPUReflectionInfoRequestStatus status, WGPUReflectionInfo const* reflectionInfo, void* userdata1, void* userdata2) {
     WGShader* shader = (WGShader*)userdata1;

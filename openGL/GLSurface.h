@@ -3,7 +3,7 @@
 
 #include "GLDevice.h"
 
-namespace mrhi {
+namespace arhi {
 
 class GLSurface : public Surface {
     GLDevice *device = nullptr;

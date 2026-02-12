@@ -10,9 +10,9 @@
 
 #define VK_NO_PROTOTYPES
 
-#include "volk.h"
+#include "external/volk.h"
 #include <vulkan/vulkan.h>
-#include "vk_mem_alloc.h"
+#include "external/vk_mem_alloc.h"
 
 /// @brief Helper macro to test the result of Vulkan calls which can return an error.
 #define VK_CHECK(x)                                                                    \
@@ -21,7 +21,7 @@
 		VkResult err = x;                                                              \
 		if (err)                                                                       \
 		{                                                                              \
-			MGP_ERROR("Detected Vulkan error: %s\n", mrhi::to_string(err).c_str()); \
+			MGP_ERROR("Detected Vulkan error: %s\n", arhi::to_string(err).c_str()); \
 			abort();                    \
 		}                                                                              \
 	} while (0)
@@ -37,7 +37,7 @@
 	} while (0)
 
 
-namespace mrhi {
+namespace arhi {
 
 
 	/**

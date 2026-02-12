@@ -4,7 +4,7 @@
 #include "rhi_common.h"
 
 
-namespace mrhi {
+namespace arhi {
 
 enum struct ShaderStage {
     Vertex = 1,
@@ -70,6 +70,7 @@ enum struct ShaderLanguage {
 
 struct ShaderDesc {
     const char* source;
+    int sourceLen = -1;
     const char* defines = nullptr;
     const char* label = nullptr;
     ShaderStage stage;

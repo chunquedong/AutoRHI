@@ -1,7 +1,7 @@
 #include "VKTexture.h"
 #include "VKBuffer.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 uint32_t findMemoryType(VKDevice* device, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;

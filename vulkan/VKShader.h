@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace mrhi {
+namespace arhi {
 
 class VKShader : public Shader {
     VKDevice* device;

@@ -1,6 +1,6 @@
 #include "WGTexture.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 void WGTexture::init(WGDevice* adevice, const TextureDesc* desc) {
     WGPUDevice device = adevice->device;

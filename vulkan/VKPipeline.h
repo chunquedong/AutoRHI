@@ -4,7 +4,7 @@
 #include "VKDevice.h"
 #include "VKShader.h"
 
-namespace mrhi {
+namespace arhi {
 
 class VKPipeline : public Pipeline {
 	VKDevice* device;

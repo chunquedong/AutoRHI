@@ -7,7 +7,7 @@
 #include "GLTexture.h"
 #include "GLBuffer.h"
 
-namespace mrhi {
+namespace arhi {
 
 class GLBindingGroup : public BindingGroup {
 public:

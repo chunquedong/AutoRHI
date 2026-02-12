@@ -1,6 +1,6 @@
 #include "WGBuffer.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 void WGBuffer::init(WGDevice* device, const BufferDesc* desc) {
     this->device = device;

@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
-#define OPENGL_BACKEND
-//#define VULKAN_BACKEND
+//#define OPENGL_BACKEND
+#define VULKAN_BACKEND
 //#define WEBGPU_BACKEND
 
 #include "GlfwWindow.h"
@@ -15,7 +15,7 @@
 #include "rhi/GraphicsDevice.h"
 #endif
 
-using namespace mrhi;
+using namespace arhi;
 
 
 const char vertexSource[] = R"(

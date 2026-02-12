@@ -43,7 +43,7 @@
     #include <vulkan/vulkan_metal.h>
 #endif
 
-#include "volk.h"
+#include "external/volk.h"
 
 #ifdef _WIN32
 	typedef const char* LPCSTR;

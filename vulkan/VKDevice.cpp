@@ -2,7 +2,7 @@
 #include "VKCommandEncoder.h"
 
 
-using namespace mrhi;
+using namespace arhi;
 
 extern GraphicsDevice* g_graphicsDevice;
 
@@ -488,7 +488,7 @@ BindingGroup* VKDevice::createBindingGroup(const BindingGroupDesc& d) {
     return t;
 }
 
-FrameBuffer* mrhi::VKDevice::createFrameBuffer(const RenderPassDesc& desc)
+FrameBuffer* arhi::VKDevice::createFrameBuffer(const RenderPassDesc& desc)
 {
 	VKFrameBuffer* t = new VKFrameBuffer();
 	t->init(this, desc);

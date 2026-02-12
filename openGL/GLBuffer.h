@@ -3,7 +3,7 @@
 
 #include "GLDevice.h"
 
-namespace mrhi {
+namespace arhi {
 
 class GLBuffer : public Buffer {
     GLDevice* device = nullptr;

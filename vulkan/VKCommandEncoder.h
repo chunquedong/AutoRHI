@@ -7,7 +7,7 @@
 #include "VKTexture.h"
 #include "VKBuffer.h"
 
-namespace mrhi {
+namespace arhi {
 
 class VKBindingGroup : public BindingGroup {
 public:

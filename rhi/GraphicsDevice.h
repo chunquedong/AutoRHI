@@ -5,12 +5,13 @@
 #include "Shader.h"
 #include "Pipeline.h"
 
-namespace mrhi {
+namespace arhi {
 
 struct BindingEntry {
     std::string name;
     Resource* resource;
     //int binding = -1;
+    int offset = 0;
 };
 
 struct BindingGroupDesc {

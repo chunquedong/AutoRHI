@@ -1,7 +1,7 @@
 #include "WGSurface.h"
 #include "WGTexture.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 WGSurface::~WGSurface() {
     //wgpuTextureViewRelease(surfaceView);

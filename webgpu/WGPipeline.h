@@ -4,7 +4,7 @@
 #include "WGDevice.h"
 #include "WGShader.h"
 
-namespace mrhi {
+namespace arhi {
 
 class WGPipeline : public Pipeline {
 public:

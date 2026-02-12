@@ -6,7 +6,7 @@
 #include "Shader.h"
 #include "Resource.h"
 
-namespace mrhi {
+namespace arhi {
 
 struct AttributeElement {
     std::string name;

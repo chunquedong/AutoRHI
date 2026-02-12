@@ -3,7 +3,7 @@
 
 #include "WGDevice.h"
 
-namespace mrhi {
+namespace arhi {
 
 class WGBuffer : public Buffer {
     WGDevice* device = nullptr;

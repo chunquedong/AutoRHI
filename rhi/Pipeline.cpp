@@ -1,6 +1,6 @@
 #include "Pipeline.h"
 
-using namespace mrhi;
+using namespace arhi;
 
 void Pipeline::reflect(const PipelineDesc* desc) {
     Shader* vertexShader = (desc->vertexShader);
