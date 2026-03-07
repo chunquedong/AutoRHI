@@ -1,4 +1,4 @@
-name = autoRhi
+name = autoRhiWasm
 summary = RHI
 outType = exe
 version = 1.0

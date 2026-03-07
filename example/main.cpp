@@ -4,8 +4,8 @@
     #define WEBGPU_BACKEND
 #else
     //#define OPENGL_BACKEND
-    //#define VULKAN_BACKEND
-    #define WEBGPU_BACKEND
+    #define VULKAN_BACKEND
+    //#define WEBGPU_BACKEND
 #endif
 
 #include "GlfwWindow.h"

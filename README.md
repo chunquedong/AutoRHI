@@ -15,5 +15,6 @@ AutoRHI is a cross-platform Rendering Hardware Interface library that provides a
 [Third-party dependencies](https://gitee.com/chunquedong/third-party)
 
 ```bash
-fmake fmake_simple.props
+fmake fmake.props
+fmake fmake_example.props
 ```
