@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef WGPipeline_H_
 #define WGPipeline_H_
 

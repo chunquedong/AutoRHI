@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef WGSurface_H_
 #define WGSurface_H_
 
@@ -11,9 +16,9 @@ class WGSurface : public Surface {
     WGDevice *device = nullptr;
     SurfaceDesc desc;
 
-    WGTexture* textureView = nullptr;
-    FrameBuffer* frameBuffer = nullptr;
-    CommandEncoder* commandEncoder = nullptr;
+    APtr<WGTexture> textureView = nullptr;
+    APtr<FrameBuffer> frameBuffer = nullptr;
+    APtr<CommandEncoder> commandEncoder = nullptr;
 public:
     WGPUSurface surface = nullptr;
     //WGPUTextureView surfaceView = nullptr;
@@ -26,10 +31,10 @@ public:
 
     void present() override;
 
-    Texture* getCurTextureView() override;
+    APtr<Texture> getCurTextureView() override;
     CommandEncoder* getCurCommandEncoder() override;
-    FrameBuffer* getCurFrameBuffer() override;
-    void cacheFrameBuffer(FrameBuffer* fbo) override;
+    APtr<FrameBuffer> getCurFrameBuffer() override;
+    void cacheFrameBuffer(APtr<FrameBuffer> fbo) override;
 };
 
 }

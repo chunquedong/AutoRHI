@@ -17,9 +17,9 @@ void GLSurface::init(GLDevice* device, const SurfaceDesc* desc) {
 
     commandEncoder = device->createCommandEncoder(CommandEncoderDesc{});
 
-    GLTexture* tex = new GLTexture();
+    auto tex = makeAPtr<GLTexture>();
     tex->fromSurface = this;
-    textureView = tex;
+    textureView = std::move(tex);
 }
 
 void GLSurface::resize(int w, int h) {
@@ -33,16 +33,15 @@ bool GLSurface::nextImage() {
 
 void GLSurface::present() {
 }
-Texture* GLSurface::getCurTextureView() {
-    return textureView;
+APtr<Texture> GLSurface::getCurTextureView() {
+    return arhi::share(textureView);
 }
 CommandEncoder* GLSurface::getCurCommandEncoder() {
-    return commandEncoder;
+    return commandEncoder.get();
 }
-FrameBuffer* GLSurface::getCurFrameBuffer() {
-    return frameBuffer;
+APtr<FrameBuffer> GLSurface::getCurFrameBuffer() {
+    return arhi::share(frameBuffer);
 }
-void GLSurface::cacheFrameBuffer(FrameBuffer* fbo) {
-    if (frameBuffer) delete frameBuffer;
-    frameBuffer = fbo;
+void GLSurface::cacheFrameBuffer(APtr<FrameBuffer> fbo) {
+    frameBuffer = std::move(fbo);
 }

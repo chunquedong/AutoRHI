@@ -1,0 +1,8 @@
+name = testWgsl
+summary = RHI
+outType = exe
+version = 1.0
+srcDirs = ../spirv/, test_wgsl.cpp
+depends = glslang 16, simple_wgsl 1
+incDirs = ../,../spirv/
+defines = SUPPORT_GLSL,SIMPLE_WGSL

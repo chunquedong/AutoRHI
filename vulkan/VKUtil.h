@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef VKUtil_H_
 #define VKUtil_H_
 
@@ -21,7 +26,7 @@
 		VkResult err = x;                                                              \
 		if (err)                                                                       \
 		{                                                                              \
-			MGP_ERROR("Detected Vulkan error: %s\n", arhi::to_string(err).c_str()); \
+			ARHI_ERROR("Detected Vulkan error: %s\n", arhi::to_string(err).c_str()); \
 			abort();                    \
 		}                                                                              \
 	} while (0)
@@ -31,7 +36,7 @@
 	{                                   \
 		if ((handle) == VK_NULL_HANDLE) \
 		{                               \
-			MGP_ERROR("Handle is NULL\n");     \
+			ARHI_ERROR("Handle is NULL\n");     \
 			abort();                    \
 		}                               \
 	} while (0)

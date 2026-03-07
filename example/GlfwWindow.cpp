@@ -1,15 +1,24 @@
 
 #include "GLfwWindow.h"
 
+#ifdef GLAD
+    #include <glad/glad.h>
+#else
+    #define GLEW_STATIC
+    #include <GL/glew.h>
+#endif
+
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #ifdef __WGVK__
-#include <wgvk_structs_impl.h>
+    #include <wgvk_structs_impl.h>
 #endif
 
 #ifdef __EMSCRIPTEN__
-#include <emscripten.h>
+    #include <emscripten.h>
+    #include <emscripten/html5.h>
+    #include <webgpu/webgpu.h>
 #endif
 
 #ifdef __EMSCRIPTEN__
@@ -37,13 +46,11 @@
 #  include <QuartzCore/CAMetalLayer.h>
 #endif
 
-#define WIN32_LEAN_AND_MEAN
-#define GLEW_STATIC
-#include <GL/glew.h>
-
 #ifndef __EMSCRIPTEN__
 #  include <GLFW/glfw3native.h>
 #endif
+
+#include <stdio.h>
 
 using namespace arhi;
 
@@ -104,6 +111,12 @@ VkSurfaceKHR GlfwWindow::createSurface(VkInstance instance)
 }
 #endif
 
+static bool doFrame(double time, void* userData) {
+    GlfwWindow* w = (GlfwWindow*)userData;
+    w->onFrame();
+    return true;
+}
+
 int GlfwWindow::run(int backend) {
 
     g_window = this;
@@ -145,15 +158,24 @@ int GlfwWindow::run(int backend) {
     glfwMakeContextCurrent(window);
 
     if (backend == 1) {
+
+#ifndef __EMSCRIPTEN__
+    #ifdef GLAD
         //gladLoadGL(glfwGetProcAddress);
+        if (!gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress)) {
+            printf("Failed to initialize GLEW.\n");
+            glfwTerminate();
+            return -1;
+        }
+    #else
         if (GLEW_OK != glewInit())
         {
             printf("Failed to initialize GLEW.\n");
             glfwTerminate();
             return -1;
         }
+    #endif
 
-#ifndef __EMSCRIPTEN__
         glfwSwapInterval(1);
 #endif
     }
@@ -161,7 +183,7 @@ int GlfwWindow::run(int backend) {
     onInit();
     
     #ifdef __EMSCRIPTEN__
-    emscripten_set_main_loop_arg(main_loop, ctx, 0, 1);
+    emscripten_request_animation_frame_loop(doFrame, this);
     #else
     while(!glfwWindowShouldClose(window)){
         onFrame();
@@ -227,39 +249,4 @@ WGPUChainedStruct* GlfwWindow::getSurfaceChain() {
 #endif
     return surfaceChain;
 }
-#endif
-
-/* ---------- POSIX / Unix-like ---------- */
-#if defined(__unix__) || defined(__APPLE__)
-#include <time.h>
-
-static inline uint64_t nanoTime(void)
-{
-    struct timespec ts;
-#if defined(CLOCK_MONOTONIC_RAW)        /* Linux, FreeBSD */
-    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-#else                                   /* macOS 10.12+, other POSIX */
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-#endif
-    return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
-}
-
-/* ---------- Windows ---------- */
-#elif defined(_WIN32)
-#include <windows.h>
-
-static inline uint64_t nanoTime(void)
-{
-    static LARGE_INTEGER freq = { 0 };
-    if (freq.QuadPart == 0)               /* one-time init */
-        QueryPerformanceFrequency(&freq);
-
-    LARGE_INTEGER counter;
-    QueryPerformanceCounter(&counter);
-    /* scale ticks �� ns: (ticks * 1e9) / freq */
-    return (uint64_t)((counter.QuadPart * 1000000000ULL) / freq.QuadPart);
-}
-
-#else
-#error "Platform not supported"
 #endif

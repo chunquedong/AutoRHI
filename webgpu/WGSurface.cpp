@@ -14,7 +14,12 @@ void WGSurface::init(WGDevice* device, const SurfaceDesc* desc) {
     };
 
     WGPUSurfaceCapabilities caps = { 0 };
+#ifdef __EMSCRIPTEN__
+    WGPUPresentMode desiredPresentMode = WGPUPresentMode_Fifo;
+#else
     WGPUPresentMode desiredPresentMode = WGPUPresentMode_Immediate;
+#endif
+    
     WGPUSurface surface = wgpuInstanceCreateSurface(device->instance, &surfaceDescriptor);
 
     wgpuSurfaceGetCapabilities(surface, device->adapter, &caps);
@@ -56,7 +61,7 @@ void WGSurface::resize(int w, int h) {
 }
 
 bool WGSurface::nextImage() {
-    WGTexture* tex = new WGTexture();
+    auto tex = makeAPtr<WGTexture>();
 
     WGPUSurfaceTexture surfaceTexture;
     wgpuSurfaceGetCurrentTexture(surface, &surfaceTexture);
@@ -78,7 +83,7 @@ bool WGSurface::nextImage() {
     tex->texture = nullptr;
     tex->textureView = wgpuTextureCreateView(surfaceTexture.texture, &descriptor);
 
-    this->textureView = tex;
+    this->textureView = std::move(tex);
 
     return true;
 }
@@ -88,31 +93,22 @@ void WGSurface::present() {
     wgpuSurfacePresent(this->surface);
 #endif
 
-    if (textureView) {
-        delete textureView;
-        textureView = nullptr;
-    }
-    if (frameBuffer) {
-        delete frameBuffer;
-        frameBuffer = nullptr;
-    }
-    if (commandEncoder) {
-        delete commandEncoder;
-        commandEncoder = nullptr;
-    }
+    // Smart pointers will automatically manage memory, no need for manual deletion
+    textureView = nullptr;
+    frameBuffer = nullptr;
+    commandEncoder = nullptr;
 }
-Texture* WGSurface::getCurTextureView() {
-    return this->textureView;
+APtr<Texture> WGSurface::getCurTextureView() {
+    return arhi::share(this->textureView);
 }
 CommandEncoder* WGSurface::getCurCommandEncoder() {
-    CommandEncoder* cmd = (device->createCommandEncoder(CommandEncoderDesc{}));
-    commandEncoder = cmd;
-    return cmd;
+    auto cmd = device->createCommandEncoder(CommandEncoderDesc{});
+    commandEncoder = std::move(cmd);
+    return commandEncoder.get();
 }
-FrameBuffer* WGSurface::getCurFrameBuffer() {
-    return frameBuffer;
+APtr<FrameBuffer> WGSurface::getCurFrameBuffer() {
+    return arhi::share(frameBuffer);
 }
-void WGSurface::cacheFrameBuffer(FrameBuffer* fbo) {
-    if (frameBuffer) delete frameBuffer;
-    frameBuffer = fbo;
+void WGSurface::cacheFrameBuffer(APtr<FrameBuffer> fbo) {
+    frameBuffer = std::move(fbo);
 }

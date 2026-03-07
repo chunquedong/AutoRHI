@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef WGTexture_H_
 #define WGTexture_H_
 

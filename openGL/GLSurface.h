@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef GLSurface_H_
 #define GLSurface_H_
 
@@ -9,9 +14,9 @@ class GLSurface : public Surface {
     GLDevice *device = nullptr;
     SurfaceDesc desc;
 
-    Texture* textureView = nullptr;
-    FrameBuffer* frameBuffer = nullptr;
-    CommandEncoder* commandEncoder = nullptr;
+    APtr<Texture> textureView = nullptr;
+    APtr<FrameBuffer> frameBuffer = nullptr;
+    APtr<CommandEncoder> commandEncoder = nullptr;
 public:
     GLuint frameBufferId = 0;
 
@@ -24,10 +29,10 @@ public:
 
     void present() override;
 
-    Texture* getCurTextureView() override;
+    APtr<Texture> getCurTextureView() override;
     CommandEncoder* getCurCommandEncoder() override;
-    FrameBuffer* getCurFrameBuffer() override;
-    void cacheFrameBuffer(FrameBuffer* fbo) override;
+    APtr<FrameBuffer> getCurFrameBuffer() override;
+    void cacheFrameBuffer(APtr<FrameBuffer> fbo) override;
 
 };
 

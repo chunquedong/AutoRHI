@@ -2,7 +2,7 @@
 
 using namespace arhi;
 
-GLShader* GLShader::create(GLDevice* device, const ShaderDesc* d) {
+APtr<GLShader> GLShader::create(GLDevice* device, const ShaderDesc* d) {
     
     assert(d->source);
 
@@ -55,7 +55,7 @@ GLShader* GLShader::create(GLDevice* device, const ShaderDesc* d) {
         // printf(defines);
         // printf(vshSource);
 
-        MGP_ERROR("Compile failed for %s shader '%s' with error '%s'.", (d->stage == ShaderStage::Vertex) ? "Vextex" : "Fragment",
+        ARHI_ERROR("Compile failed for %s shader '%s' with error '%s'.", (d->stage == ShaderStage::Vertex) ? "Vextex" : "Fragment",
             d->label, infoLog == NULL ? "" : infoLog);
         delete[] infoLog;
 
@@ -65,7 +65,7 @@ GLShader* GLShader::create(GLDevice* device, const ShaderDesc* d) {
         return nullptr;
     }
 
-    GLShader* shader = new GLShader();
+    auto shader = makeAPtr<GLShader>();
     shader->stage = d->stage;
     shader->shaderModule = vertexShader;
     return shader;

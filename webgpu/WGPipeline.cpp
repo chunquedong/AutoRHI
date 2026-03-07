@@ -28,13 +28,16 @@ void WGPipeline::buildBindGroupLayoutList(WGDevice* adevice) {
         }
         else if (uniform.type == UniformType::UniformBuffer) {
             layoutEntry.buffer = WGPUBufferBindingLayout {
-                .type = (WGPUBufferBindingType)uniform.bufferBindingType,
+                .type = WGPUBufferBindingType_Uniform,
                 .hasDynamicOffset = false,
                 .minBindingSize = (unsigned long long)uniform.bufferMinBindingSize,
             };
+            if (uniform.bufferBindingType == BufferDesc::Usage_Storage) {
+                layoutEntry.buffer.type = WGPUBufferBindingType_Storage;
+            }
         }
         else {
-            MGP_ERROR("ERROR: unknow uniform type %d\n", uniform.type);
+            ARHI_ERROR("ERROR: unknow uniform type %d\n", uniform.type);
             continue;
         }
 
@@ -63,7 +66,7 @@ void WGPipeline::createVertexInputLayout(const PipelineDesc* desc,
             if (bufferInfo._location != -1) {
                 auto shaderFound = this->reflection.attributes.find(bufferInfo._location);
                 if (shaderFound == this->reflection.attributes.end()) {
-                    MGP_ERROR("Not found attribute %d\n", bufferInfo._location);
+                    ARHI_ERROR("Not found attribute %d\n", bufferInfo._location);
                     continue;
                 }
                 attr.format = (WGPUVertexFormat)shaderFound->second.format;
@@ -72,7 +75,7 @@ void WGPipeline::createVertexInputLayout(const PipelineDesc* desc,
             else {
                 auto shaderFound = this->reflection.attributesIndex.find(bufferInfo.name);
                 if (shaderFound == this->reflection.attributesIndex.end()) {
-                    MGP_ERROR("Not found attribute %s\n", bufferInfo.name.c_str());
+                    ARHI_ERROR("Not found attribute %s\n", bufferInfo.name.c_str());
                     continue;
                 }
                 attr.format = (WGPUVertexFormat)shaderFound->second.format;
@@ -123,10 +126,9 @@ bool WGPipeline::init(WGDevice* adevice, const PipelineDesc* desc) {
     std::vector<WGPUColorTargetState> colorTargetState;
     WGPUBlendState blendState = {};
     for (const ColorTargetState& state : desc->targets) {
-        WGPUColorTargetState wgState = {
-            .format = (WGPUTextureFormat)state.format,
-            .writeMask = (WGPUColorWriteMask)state.writeMask,
-        };
+        WGPUColorTargetState wgState = {};
+        wgState.format = (WGPUTextureFormat)state.format;
+        wgState.writeMask = (WGPUColorWriteMask)state.writeMask;
         if (state.blend) {
             blendState = *((WGPUBlendState*)state.blend);
             wgState.blend = &blendState;
@@ -134,45 +136,68 @@ bool WGPipeline::init(WGDevice* adevice, const PipelineDesc* desc) {
         colorTargetState.push_back(wgState);
     }
 
-    WGPUFragmentState fragmentState;
+    WGPUFragmentState fragmentState = {};
     if (fragmentShader) {
-        fragmentState = {
-            .module = fragmentShader->shaderModule,
-            .entryPoint = {
-                .data = fragmentShader->entryPoint,
-                .length = fragmentShader->entryPoint?strlen(fragmentShader->entryPoint):0
-            },
-            /*.constantCount = 1,
-            .constants = &brightnessConstant,*/
-            .targetCount = colorTargetState.size(),
-            .targets = colorTargetState.data(),
-        };
+        fragmentState.module = fragmentShader->shaderModule;
+        fragmentState.entryPoint.data = fragmentShader->entryPoint;
+        fragmentState.entryPoint.length = fragmentShader->entryPoint?strlen(fragmentShader->entryPoint):0;
+        fragmentState.targetCount = colorTargetState.size();
+        fragmentState.targets = colorTargetState.data();
+    }
+
+    // Set up depth stencil state if provided
+    WGPUDepthStencilState depthStencilState = {};
+    WGPUDepthStencilState* pDepthStencilState = nullptr;
+    
+    if (desc->depthStencil) {
+        const DepthStencilState& ds = *desc->depthStencil;
+        depthStencilState.format = (WGPUTextureFormat)ds.format;
+        depthStencilState.depthWriteEnabled = ds.depthWriteEnabled ? WGPUOptionalBool_True : WGPUOptionalBool_False;
+        depthStencilState.depthCompare = (WGPUCompareFunction)ds.depthCompare;
+        depthStencilState.depthBias = ds.depthBias;
+        depthStencilState.depthBiasSlopeScale = ds.depthBiasSlopeScale;
+        depthStencilState.depthBiasClamp = ds.depthBiasClamp;
+        depthStencilState.stencilReadMask = ds.stencilReadMask;
+        depthStencilState.stencilWriteMask = ds.stencilWriteMask;
+        
+        depthStencilState.stencilFront.compare = (WGPUCompareFunction)ds.stencilFront.compare;
+        depthStencilState.stencilFront.failOp = (WGPUStencilOperation)ds.stencilFront.failOp;
+        depthStencilState.stencilFront.depthFailOp = (WGPUStencilOperation)ds.stencilFront.depthFailOp;
+        depthStencilState.stencilFront.passOp = (WGPUStencilOperation)ds.stencilFront.passOp;
+        
+        depthStencilState.stencilBack.compare = (WGPUCompareFunction)ds.stencilBack.compare;
+        depthStencilState.stencilBack.failOp = (WGPUStencilOperation)ds.stencilBack.failOp;
+        depthStencilState.stencilBack.depthFailOp = (WGPUStencilOperation)ds.stencilBack.depthFailOp;
+        depthStencilState.stencilBack.passOp = (WGPUStencilOperation)ds.stencilBack.passOp;
+        
+        pDepthStencilState = &depthStencilState;
     }
 
     // Render Pipeline
-    WGPURenderPipelineDescriptor rpdesc = {
-        .label = {.data = desc->label, .length = desc->label?strlen(desc->label):0 },
-        .layout = pllayout,
-        .vertex = {
-            .module = vertexShader->shaderModule,
-            .entryPoint = {
-                .data = vertexShader->entryPoint,
-                .length = vertexShader->entryPoint?strlen(vertexShader->entryPoint):0
-            },
-            .bufferCount = vertexBufferLayoutList.size(),
-            .buffers = vertexBufferLayoutList.data(),
-        },
-        .primitive = {
-            .topology = (WGPUPrimitiveTopology)desc->primitive.topology,
-            .frontFace = (WGPUFrontFace)desc->primitive.frontFace,
-            .cullMode = (WGPUCullMode)desc->primitive.cullMode,
-        },
-        .multisample = {
-            .count = desc->multisample.count,
-            .mask = desc->multisample.mask,
-        },
-        .fragment = fragmentShader  ? &fragmentState : nullptr,
-    };
+    WGPURenderPipelineDescriptor rpdesc = {};
+    rpdesc.label.data = desc->label;
+    rpdesc.label.length = desc->label?strlen(desc->label):0;
+    rpdesc.layout = pllayout;
+    
+    rpdesc.vertex.module = vertexShader->shaderModule;
+    rpdesc.vertex.entryPoint.data = vertexShader->entryPoint;
+    rpdesc.vertex.entryPoint.length = vertexShader->entryPoint?strlen(vertexShader->entryPoint):0;
+    rpdesc.vertex.bufferCount = vertexBufferLayoutList.size();
+    rpdesc.vertex.buffers = vertexBufferLayoutList.data();
+    
+    rpdesc.primitive.topology = (WGPUPrimitiveTopology)desc->primitive.topology;
+    rpdesc.primitive.frontFace = (WGPUFrontFace)desc->primitive.frontFace;
+    rpdesc.primitive.cullMode = (WGPUCullMode)desc->primitive.cullMode;
+    //rpdesc.primitive.polygonMode = (WGPUPolygonMode)desc->primitive.polygonMode;
+    rpdesc.primitive.unclippedDepth = desc->primitive.unclippedDepth;
+    
+    rpdesc.depthStencil = pDepthStencilState;
+    
+    rpdesc.multisample.count = desc->multisample.count;
+    rpdesc.multisample.mask = desc->multisample.mask;
+    rpdesc.multisample.alphaToCoverageEnabled = desc->multisample.alphaToCoverageEnabled;
+    
+    rpdesc.fragment = fragmentShader ? &fragmentState : nullptr;
     this->pipeline = wgpuDeviceCreateRenderPipeline(device, &rpdesc);
 
     wgpuPipelineLayoutRelease(pllayout);

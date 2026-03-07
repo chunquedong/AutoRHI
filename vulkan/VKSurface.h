@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef VKSurface_H_
 #define VKSurface_H_
 
@@ -10,11 +15,11 @@ class VKTexture;
 class VKFrameBuffer;
 
 struct FrameState {
-    VKCommandEncoder* commandEncoder = nullptr;
+    APtr<VKCommandEncoder> commandEncoder = nullptr;
     VkSemaphore     swapchain_acquire_semaphore = VK_NULL_HANDLE;
     VkSemaphore     swapchain_release_semaphore = VK_NULL_HANDLE;
-    VKTexture* textureView = nullptr;
-    VKFrameBuffer* frameBuffer = nullptr;
+    APtr<VKTexture> textureView = nullptr;
+    APtr<VKFrameBuffer> frameBuffer = nullptr;
 };
 
 class VKSurface : public Surface {
@@ -68,10 +73,10 @@ public:
 
     void present() override;
 
-    Texture* getCurTextureView() override;
+    APtr<Texture> getCurTextureView() override;
     CommandEncoder* getCurCommandEncoder() override;
-    FrameBuffer* getCurFrameBuffer() override;
-    void cacheFrameBuffer(FrameBuffer* fbo) override;
+    APtr<FrameBuffer> getCurFrameBuffer() override;
+    void cacheFrameBuffer(APtr<FrameBuffer> fbo) override;
 
 private:
     bool init_swapchain();

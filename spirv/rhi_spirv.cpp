@@ -6,6 +6,9 @@
 //#include <glslang_c_api.h>
 #include "spirv_reflect.h"
 
+#ifdef SIMPLE_WGSL
+    #include "simple_wgsl.h"
+#endif
 
 namespace arhi {
 
@@ -24,7 +27,7 @@ static EShLanguage wgpuShaderStageToGlslang(ShaderStage stage){
     //if(stage == ShaderStage::Callable) return EShLangCallable;
     //if(stage == ShaderStage::Task) return EShLangTask;
     //if(stage == ShaderStage::Mesh) return EShLangMesh;
-    MGP_ERROR("Unsupport shader stage: %d", stage);
+    ARHI_ERROR("Unsupport shader stage: %d", stage);
     return (EShLanguage)~0;
 }
 
@@ -74,14 +77,14 @@ static std::vector<uint32_t> glsl_to_spirv_single(const char* nullterminatedSour
     //char errorBuffer[2048];
     
     if(!shader.parse(&Resources, targetVulkanVersion, ECoreProfile, false, false, messages)){
-        MGP_ERROR("%s GLSL Parsing Failed: %s", stageToString(stage), shader.getInfoLog());
+        ARHI_ERROR("%s GLSL Parsing Failed: %s", stageToString(stage), shader.getInfoLog());
         //puts(errorBuffer);
     }
     else{
         glslang::TProgram program;
         program.addShader(&shader);
         if(!program.link(messages)){
-            MGP_ERROR("Error linkin shader: %s", program.getInfoLog());
+            ARHI_ERROR("Error linkin shader: %s", program.getInfoLog());
             //puts(errorBuffer);
         }
         glslang::TIntermediate* intermediate = program.getIntermediate(stage);
@@ -129,21 +132,21 @@ static TextureType spvDimToViewDimension(SpvDim dim, bool arrayed) {
     }
 }
 
-static bool getGlobalRI(SpvReflectShaderModule mod, std::vector<UniformVar>& uniforms) {
+static bool getGlobalRI(SpvReflectShaderModule mod, ShaderStage stage, std::vector<UniformVar>& uniforms) {
 
     uint32_t descriptorSetCount = 0;
     SpvReflectResult result = spvReflectEnumerateDescriptorSets(&mod, &descriptorSetCount, NULL);
     if (result != SPV_REFLECT_RESULT_SUCCESS) {
-        MGP_ERROR("Failed to enumerate descriptor sets (count)");
+        ARHI_ERROR("Failed to enumerate descriptor sets (count)");
     }
     if (descriptorSetCount == 0) {
         return false;
     }
 
     SpvReflectDescriptorSet** descriptorSets = (SpvReflectDescriptorSet**)calloc(descriptorSetCount, sizeof(SpvReflectDescriptorSet*));
-    if (descriptorSets == NULL) MGP_ERROR("Failed to allocate memory for descriptor set pointers");
+    if (descriptorSets == NULL) ARHI_ERROR("Failed to allocate memory for descriptor set pointers");
     result = spvReflectEnumerateDescriptorSets(&mod, &descriptorSetCount, descriptorSets);
-    if (result != SPV_REFLECT_RESULT_SUCCESS) MGP_ERROR("Failed to enumerate descriptor sets (pointers)");
+    if (result != SPV_REFLECT_RESULT_SUCCESS) ARHI_ERROR("Failed to enumerate descriptor sets (pointers)");
 
     uint32_t totalGlobalCount = 0;
     for (uint32_t i = 0; i < descriptorSetCount; i++) {
@@ -160,8 +163,14 @@ static bool getGlobalRI(SpvReflectShaderModule mod, std::vector<UniformVar>& uni
         const SpvReflectDescriptorSet* set = descriptorSets[bindGroupIndex];
         for (uint32_t entryIndex = 0; entryIndex < set->binding_count; entryIndex++) {
             const SpvReflectDescriptorBinding* entry = set->bindings[entryIndex];
+            if (!entry) {
+                printf("DescriptorSet Error: %d in %d\n", entryIndex, set->binding_count);
+                continue;
+            }
+
             UniformVar insert = {}; // Initialize to zero
 
+            insert.visibility = (int)stage;
             insert.bindGroup = set->set; // Use the actual set number from reflection
             insert.binding = entry->binding;
 
@@ -199,45 +208,50 @@ static bool getGlobalRI(SpvReflectShaderModule mod, std::vector<UniformVar>& uni
                 // WebGPU requires separate texture and sampler.
                 // This reflection info might need to create two entries or have a special type.
                 // For now, matches your original wgvk_assert.
-                MGP_ERROR("SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER not handled/allowed.");
+                ARHI_ERROR("SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER not handled/allowed.");
                 break;
                 // Handle other types like SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT if necessary
             default:
-                MGP_ERROR("Unhandled or illegal descriptor type in SPIR-V reflection.");
+                ARHI_ERROR("Unhandled or illegal descriptor type in SPIR-V reflection.");
             }
             uniforms.push_back(insert);
         }
     }
 
     free((void*)descriptorSets); // Free the array of pointers (not the content they point to)
+    return true;
 }
 
 static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAttrib) {
 
     AttributeVar result = {};
     result.name = spvAttrib->name;
-    result.format = spvAttrib->format;
+    result.specificFormat = spvAttrib->format;
     result.location = spvAttrib->location;
     switch (spvAttrib->format) {
     case SPV_REFLECT_FORMAT_R32_SFLOAT:
         //result.componentCount = 1;
         //result.bytePerComponent = 4;
         result.size = 4;
+        result.format = VertexFormat::Float32;
         break;
     case SPV_REFLECT_FORMAT_R32G32_SFLOAT:
         //result.componentCount = 2;
         //result.bytePerComponent = 4;
         result.size = 8;
+        result.format = VertexFormat::Float32x2;
         break;
     case SPV_REFLECT_FORMAT_R32G32B32_SFLOAT:
         //result.componentCount = 3;
         //result.bytePerComponent = 4;
         result.size = 12;
+        result.format = VertexFormat::Float32x3;
         break;
     case SPV_REFLECT_FORMAT_R32G32B32A32_SFLOAT:
         //result.componentCount = 4;
         //result.bytePerComponent = 4;
         result.size = 16;
+        result.format = VertexFormat::Float32x4;
         break;
     case SPV_REFLECT_FORMAT_R32_UINT:
         //result.componentCount = 1;
@@ -245,6 +259,7 @@ static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAt
         //result.isFloat = false;
         //result.isSigned = false;
         result.size = 4;
+        result.format = VertexFormat::Uint32;
         break;
     case SPV_REFLECT_FORMAT_R32G32_UINT:
         //result.componentCount = 2;
@@ -252,6 +267,7 @@ static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAt
         //result.isFloat = false;
         //result.isSigned = false;
         result.size = 8;
+        result.format = VertexFormat::Uint32x2;
         break;
     case SPV_REFLECT_FORMAT_R32G32B32_UINT:
         //result.componentCount = 3;
@@ -259,6 +275,7 @@ static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAt
         //result.isFloat = false;
         //result.isSigned = false;
         result.size = 12;
+        result.format = VertexFormat::Uint32x3;
         break;
     case SPV_REFLECT_FORMAT_R32G32B32A32_UINT:
         /*result.componentCount = 4;
@@ -266,6 +283,7 @@ static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAt
         result.isFloat = false;
         result.isSigned = false;*/
         result.size = 16;
+        result.format = VertexFormat::Uint32x4;
         break;
     case SPV_REFLECT_FORMAT_R32_SINT:
         /*result.componentCount = 1;
@@ -273,6 +291,7 @@ static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAt
         result.isFloat = false;
         result.isSigned = true;*/
         result.size = 4;
+        result.format = VertexFormat::Sint32;
         break;
     case SPV_REFLECT_FORMAT_R32G32_SINT:
         /*result.componentCount = 2;
@@ -280,6 +299,7 @@ static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAt
         result.isFloat = false;
         result.isSigned = true;*/
         result.size = 8;
+        result.format = VertexFormat::Sint32x2;
         break;
     case SPV_REFLECT_FORMAT_R32G32B32_SINT:
         /*result.componentCount = 3;
@@ -287,6 +307,7 @@ static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAt
         result.isFloat = false;
         result.isSigned = true;*/
         result.size = 12;
+        result.format = VertexFormat::Sint32x3;
         break;
     case SPV_REFLECT_FORMAT_R32G32B32A32_SINT:
         /*result.componentCount = 4;
@@ -294,6 +315,7 @@ static AttributeVar spvReflectToReflectAttrib(SpvReflectInterfaceVariable* spvAt
         result.isFloat = false;
         result.isSigned = true;*/
         result.size = 16;
+        result.format = VertexFormat::Sint32x4;
         break;
     default: break; //wgvk_assert(false, "Unhandled Spirv-reflect attribute type");
     }
@@ -311,8 +333,8 @@ bool compileGLSL(const char* source, ShaderStage stage, std::vector<uint32_t>& s
     return spirvSource.size() > 0;
 }
 
-bool spirvReflect(std::vector<uint32_t>& spirvSource, ShaderModuleReflection& reflectionRes) {
-SpvReflectShaderModule mod{};
+bool spirvReflect(std::vector<uint32_t>& spirvSource, ShaderStage stage, ShaderModuleReflection& reflectionRes) {
+    SpvReflectShaderModule mod{};
     SpvReflectResult result = spvReflectCreateShaderModule(spirvSource.size()*4, spirvSource.data(), &mod);
 
     if (result != SPV_REFLECT_RESULT_SUCCESS) {
@@ -320,7 +342,7 @@ SpvReflectShaderModule mod{};
     }
     //SpvReflectDescriptorSet* descriptorSets = NULL;
 
-    getGlobalRI(mod, reflectionRes.uniforms);
+    getGlobalRI(mod, stage, reflectionRes.uniforms);
 
     SpvReflectInterfaceVariable** input_vars;
     SpvReflectInterfaceVariable** output_vars;
@@ -351,5 +373,74 @@ SpvReflectShaderModule mod{};
     spvReflectDestroyShaderModule(&mod);
     return true;
 }
+
+#ifdef SIMPLE_WGSL
+bool spirvToWGSL(const char* source, int sourceLen, std::string& wgslCode) {
+    uint32_t *spirv = (uint32_t *)source;
+    size_t word_count = sourceLen / sizeof(uint32_t);
+
+    WgslRaiseOptions opts = {0};
+    opts.preserve_names = 1;       // use OpName debug info
+    opts.inline_constants = 1;     // inline constant values
+    opts.emit_debug_comments = 0;  // don't add SPIR-V ID comments
+
+    char *wgsl_out = NULL;
+    char *error = NULL;
+    WgslRaiseResult res = wgsl_raise_to_wgsl(spirv, word_count, &opts, &wgsl_out, &error);
+
+    if (res == WGSL_RAISE_SUCCESS) {
+        wgslCode = wgsl_out;
+        wgsl_raise_free(error);
+        wgsl_raise_free(wgsl_out);
+        return true;
+    } else {
+        fprintf(stderr, "WGSL Raise error: %s\n", error ? error : "unknown");
+        wgsl_raise_free(wgsl_out);
+        wgsl_raise_free(error);
+        return false;
+    }
+}
+bool compileWGSL(const char* source, ShaderStage stage, std::vector<uint32_t>& spirvSource) {
+    //printf("compileWGSL: %s\n", source);
+    // 1. Parse
+    WgslAstNode *ast = wgsl_parse(source);
+    if (!ast) { fprintf(stderr, "Parse error\n"); return 1; }
+
+    // 2. Resolve
+    WgslResolver *resolver = wgsl_resolver_build(ast);
+    if (!resolver) { fprintf(stderr, "Resolve error\n"); wgsl_free_ast(ast); return 1; }
+
+    // 3. Lower to SPIR-V
+    WgslLowerOptions opts = {0};
+    opts.env = WGSL_LOWER_ENV_VULKAN_1_2;
+    opts.enable_debug_names = 1;
+
+    uint32_t *spirv;
+    size_t word_count;
+    WgslLowerResult res = wgsl_lower_emit_spirv(ast, resolver, &opts, &spirv, &word_count);
+
+    bool rc = true;
+    if (res == WGSL_LOWER_OK) {
+        spirvSource.resize(word_count);
+        memcpy(spirvSource.data(), spirv, word_count*4);
+    } else {
+        fprintf(stderr, "WGSL Lower error: %d\n", res);
+        rc = false;
+    }
+
+    // 4. Cleanup
+    wgsl_lower_free(spirv);
+    wgsl_resolver_free(resolver);
+    wgsl_free_ast(ast);
+    return rc;
+}
+#else
+bool spirvToWGSL(const char* source, int sourceLen, std::string& wgslCode) {
+    return false;
+}
+bool compileWGSL(const char* source, ShaderStage stage, std::vector<uint32_t>& spirvSource) {
+    return false;
+}
+#endif
 
 }

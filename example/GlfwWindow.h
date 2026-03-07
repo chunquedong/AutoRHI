@@ -16,12 +16,13 @@ namespace arhi {
 
 class GlfwWindow {
     GLFWwindow* window = nullptr;
+
 public:
 
     int width = 0;
     int height = 0;
     virtual void onResize(int w, int h) {}
-protected:
+
     virtual void onFrame() {}
     virtual void onInit() {}
 

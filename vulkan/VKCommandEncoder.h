@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef VKCommandEncoder_H_
 #define VKCommandEncoder_H_
 
@@ -13,7 +18,7 @@ class VKBindingGroup : public BindingGroup {
 public:
     VkDescriptorSet descriptorSet;
     VkPipelineLayout pipelineLayout;
-    void init(VKDevice* device, const BindingGroupDesc* desc);
+    void init(VKDevice* device, BindingGroupDesc&& desc);
     virtual ~VKBindingGroup();
 };
 
@@ -24,7 +29,7 @@ struct VKFrameBuffer : public FrameBuffer {
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
     FrameState* frameState;
 
-    bool init(VKDevice *device, const RenderPassDesc& desc);
+    bool init(VKDevice *device, RenderPassDesc&& desc);
     ~VKFrameBuffer();
 };
 
@@ -48,8 +53,8 @@ public:
     void init(VKDevice* device, const CommandEncoderDesc* desc);
     void setPipeline(Pipeline* pipeline) override;
     void setBindingGroup(BindingGroup* bindingGroup, uint32_t groupIndex) override;
-    void setIndexBuffer(Buffer*, int offset, IndexFormat indexFormat) override;
-    void setVertexBuffer(Buffer*, int offset, int binding) override;
+    void setIndexBuffer(Buffer* buffer, int offset, IndexFormat indexFormat) override;
+    void setVertexBuffer(Buffer* buffer, int offset, int binding) override;
     void drawIndexed(uint32_t indices, uint32_t instances, uint32_t firstindex, int32_t baseVertex, uint32_t firstinstance) override;
 
     void setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override;

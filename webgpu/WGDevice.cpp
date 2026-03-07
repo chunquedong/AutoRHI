@@ -56,10 +56,13 @@ void WGDevice::init() {
         .requiredFeatures = instanceFeatures,
     };
 #else
+    WGPUInstanceFeatureName instanceFeatures[1] = {
+        WGPUInstanceFeatureName_TimedWaitAny,
+    };
     WGPUInstanceDescriptor instanceDescriptor = {
-        .capabilities = {
-            .timedWaitAnyEnable = 1
-        }
+        .nextInChain = NULL,
+        .requiredFeatureCount = 1,
+        .requiredFeatures = instanceFeatures,
     };
 #endif
     WGPUInstance instance = wgpuCreateInstance(&instanceDescriptor);
@@ -86,7 +89,7 @@ void WGDevice::init() {
     wgpuInstanceWaitAny(instance, 1, &winfo, TimeoutNS);
     WGPUStringView deviceLabel = { "WGPU Device", sizeof("WGPU Device") - 1 };
     if (requestedAdapter == NULL) {
-        MGP_ERROR("Adapter is NULL\n");
+        ARHI_ERROR("Adapter is NULL\n");
     }
 
     WGPUDeviceDescriptor deviceDescriptor = {
@@ -125,6 +128,7 @@ void WGDevice::init() {
 }
 
 WGDevice::~WGDevice() {
+    pipelineCache.clear();
 
     if (g_graphicsDevice == this) {
         g_graphicsDevice = nullptr;
@@ -137,55 +141,56 @@ WGDevice::~WGDevice() {
 }
 
 
-Surface* WGDevice::createSurface(const SurfaceDesc& d) {
-    WGSurface* fbo = new WGSurface();
+APtr<Surface> WGDevice::createSurface(const SurfaceDesc& d) {
+    auto fbo = makeAPtr<WGSurface>();
     fbo->init(this, &d);
     return fbo;
 }
 
-Pipeline* WGDevice::createPipeline(const PipelineDesc& d) {
-    WGPipeline* t = new WGPipeline();
+APtr<Pipeline> WGDevice::doCreatePipeline(const PipelineDesc& d) {
+    auto t = makeAPtr<WGPipeline>();
     t->init(this, &d);
     return t;
 }
 
-Texture* WGDevice::createTexture(const TextureDesc& d) {
-    WGTexture* t = new WGTexture();
+APtr<Texture> WGDevice::createTexture(const TextureDesc& d) {
+    auto t = makeAPtr<WGTexture>();
     t->init(this, &d);
     return t;
 }
 
-Buffer* WGDevice::createBuffer(const BufferDesc& d) {
-    WGBuffer* t = new WGBuffer();
+APtr<Buffer> WGDevice::createBuffer(const BufferDesc& d) {
+    auto t = makeAPtr<WGBuffer>();
     t->init(this, &d);
     return t;
 }
 
-CommandEncoder* WGDevice::createCommandEncoder(const CommandEncoderDesc& d) {
-    WGCommandEncoder* t = new WGCommandEncoder();
+APtr<CommandEncoder> WGDevice::createCommandEncoder(const CommandEncoderDesc& d) {
+    auto t = makeAPtr<WGCommandEncoder>();
     t->init(this, &d);
     return t;
 }
 
-Shader* WGDevice::createShader(const ShaderDesc& d) {
-    return WGShader::create(this, &d);
+APtr<Shader> WGDevice::createShader(const ShaderDesc& d) {
+    auto shader = WGShader::create(this, &d);
+    return shader;//arhi::cast<Shader>(std::move(shader));
 }
 
-Sampler* WGDevice::createSampler(const SamplerDesc& d) {
-    WGSampler* t = new WGSampler();
+APtr<Sampler> WGDevice::createSampler(const SamplerDesc& d) {
+    auto t = makeAPtr<WGSampler>();
     t->init(this, &d);
     return t;
 }
 
-BindingGroup* WGDevice::createBindingGroup(const BindingGroupDesc& d) {
-    WGBindingGroup* t = new WGBindingGroup();
-    t->init(this, &d);
+APtr<BindingGroup> WGDevice::createBindingGroup(BindingGroupDesc&& d) {
+    auto t = makeAPtr<WGBindingGroup>();
+    t->init(this, std::move(d));
     return t;
 }
 
-FrameBuffer* WGDevice::createFrameBuffer(const RenderPassDesc& desc)
+APtr<FrameBuffer> WGDevice::createFrameBuffer(RenderPassDesc&& desc)
 {
-    WGFrameBuffer* t = new WGFrameBuffer();
-    t->desc = desc;
+    auto t = makeAPtr<WGFrameBuffer>();
+    t->desc = std::move(desc);
     return t;
 }

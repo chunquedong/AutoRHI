@@ -73,11 +73,13 @@ void GLCommandEncoder::setPipeline(Pipeline* pipeline) {
     curPipeline = wgPipeline;
 
     GL_ASSERT(glUseProgram(wgPipeline->program));
+    
+    wgPipeline->applyState();
 }
 
 void GLCommandEncoder::setBindingGroup(BindingGroup* bindingGroup, uint32_t groupIndex) {
     GLBindingGroup* wgBindingGroup = dynamic_cast<GLBindingGroup*>(bindingGroup);
-    wgBindingGroup->bind();
+    wgBindingGroup->bind(curPipeline);
 }
 
 void GLCommandEncoder::setIndexBuffer(Buffer* b, int offset, IndexFormat indexFormat) {
@@ -119,7 +121,54 @@ void GLCommandEncoder::drawIndexed(uint32_t indices, uint32_t instances, uint32_
     if (this->indexFormat == IndexFormat::Uint16) {
         indexFormat = GL_UNSIGNED_SHORT;
     }
-    GL_ASSERT(glDrawElements(primitiveType, indices, indexFormat, (GLvoid*)firstindex));
+
+    if (instances > 1) {
+        if (baseVertex == 0 && firstinstance == 0) {
+            GL_ASSERT(glDrawElementsInstanced(
+                primitiveType,       // mode
+                indices,             // count
+                indexFormat,         // type
+                (GLvoid*)firstindex, // indices
+                instances           // instanceCount
+            ));
+        }
+        else {
+#ifdef GLAD
+            ARHI_ERROR("Unspport glDrawElementsInstancedBaseVertexBaseInstance!");
+#else
+            // Use instanced rendering
+            GL_ASSERT(glDrawElementsInstancedBaseVertexBaseInstance(
+                primitiveType,       // mode
+                indices,             // count
+                indexFormat,         // type
+                (GLvoid*)firstindex, // indices
+                instances,           // instanceCount
+                baseVertex,          // baseVertex
+                firstinstance        // baseInstance
+            ));
+#endif
+        }
+    } else {
+        // Use regular rendering
+        if (baseVertex != 0 || firstinstance != 0) {
+            // Use base vertex if needed
+            GL_ASSERT(glDrawElementsBaseVertex(
+                primitiveType,       // mode
+                indices,             // count
+                indexFormat,         // type
+                (GLvoid*)firstindex, // indices
+                baseVertex           // baseVertex
+            ));
+        } else {
+            // Simple case
+            GL_ASSERT(glDrawElements(
+                primitiveType,       // mode
+                indices,             // count
+                indexFormat,         // type
+                (GLvoid*)firstindex  // indices
+            ));
+        }
+    }
 }
 
 void GLCommandEncoder::setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
@@ -146,28 +195,35 @@ void GLCommandEncoder::bind()
             GL_ASSERT(glEnableVertexAttribArray(attribute._location));
 
             void* pointer = NULL;
-            switch (attribute._format)
-            {
+            switch (attribute._format) {
             case GL_INT:
                 //(GLuint index, GLint size, GLenum type, GLsizei stride, const void*pointer)
                 GL_ASSERT(glVertexAttribIPointer(attribute._location, (GLint)attribute._size, attribute._format, (GLsizei)stride, pointer));
                 break;
             case GL_FLOAT_VEC2:
-                //(	GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer)
+                //(    GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer)
                 GL_ASSERT(glVertexAttribPointer(attribute._location, (GLint)2, GL_FLOAT, GL_FALSE, (GLsizei)stride, pointer));
                 break;
             case GL_FLOAT_VEC3:
-                //(	GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer)
+                //(    GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer)
                 GL_ASSERT(glVertexAttribPointer(attribute._location, (GLint)3, GL_FLOAT, GL_FALSE, (GLsizei)stride, pointer));
                 break;
             case GL_FLOAT_VEC4:
-                //(	GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer)
+                //(    GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer)
                 GL_ASSERT(glVertexAttribPointer(attribute._location, (GLint)4, GL_FLOAT, GL_FALSE, (GLsizei)stride, pointer));
                 break;
             default:
-                //(	GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer)
+                //(    GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer)
                 GL_ASSERT(glVertexAttribPointer(attribute._location, (GLint)attribute._size, attribute._format, GL_FALSE, (GLsizei)stride, pointer));
                 break;
+            }
+
+            // Set vertex attribute divisor for instanced rendering
+            // If the buffer layout step mode is Instance, set divisor to 1, otherwise 0
+            if (layout.stepMode == StepMode::Instance) {
+                GL_ASSERT(glVertexAttribDivisor(attribute._location, 1));
+            } else {
+                GL_ASSERT(glVertexAttribDivisor(attribute._location, 0));
             }
         }
     }
@@ -196,28 +252,30 @@ void GLCommandEncoder::unbind()
 //////////////////////////////////////////////////////////////////////////////////////////
 
 
-void GLBindingGroup::init(GLDevice* device, const BindingGroupDesc* desc)
+void GLBindingGroup::init(GLDevice* device, BindingGroupDesc&& desc)
 {
-    this->desc = *desc;
+    this->desc = std::move(desc);
 }
 
 GLBindingGroup::~GLBindingGroup()
 {
 }
 
-void GLBindingGroup::bind()
+void GLBindingGroup::bind(GLPipeline* curPipeline)
 {
-    GLPipeline* pipeline = dynamic_cast<GLPipeline*>(desc.pipeline);
+    GLPipeline* pipeline = curPipeline;
+    //GLPipeline* pipeline = dynamic_cast<GLPipeline*>(desc.pipeline.get());
+
     for (auto it = desc.resources.begin(); it != desc.resources.end(); ++it) {
         BindingEntry& entry = *it;
         auto found = pipeline->reflection.uniforms.find(entry.name);
         if (found == pipeline->reflection.uniforms.end()) {
-            if (!dynamic_cast<GLTexture*>(entry.resource)) {
+            if (!dynamic_cast<GLTexture*>(entry.resource.get())) {
                 printf("WARN: Unknow uniform %s\n", entry.name.c_str());
             }
             continue;
         }
-        if (GLTexture* tex = dynamic_cast<GLTexture*>(entry.resource)) {
+        if (GLTexture* tex = dynamic_cast<GLTexture*>(entry.resource.get())) {
             //GP_ASSERT((sampler->getType() == Texture::TEXTURE_2D && uniform->_type == GL_SAMPLER_2D) ||
             //    (sampler->getType() == Texture::TEXTURE_CUBE && uniform->_type == GL_SAMPLER_CUBE));
             int unit = found->second.binding + entry.offset;
@@ -227,13 +285,13 @@ void GLBindingGroup::bind()
             GL_ASSERT(glBindTexture(tex->targetType, tex->texture));
             GL_ASSERT(glUniform1i(location, unit));
         }
-        else if (GLSampler* tex = dynamic_cast<GLSampler*>(entry.resource)) {
+        else if (GLSampler* tex = dynamic_cast<GLSampler*>(entry.resource.get())) {
             int unit = found->second.binding + entry.offset;
             int location = found->second.glLocation;
 
             GL_ASSERT(glActiveTexture(GL_TEXTURE0 + unit));
             if (tex->texture) {
-                GLTexture* texture = dynamic_cast<GLTexture*>(tex->texture);
+                GLTexture* texture = dynamic_cast<GLTexture*>(tex->texture.get());
                 // Bind the sampler - this binds the texture and applies sampler state
                 GL_ASSERT(glBindTexture(texture->targetType, texture->texture));
             }
@@ -241,22 +299,22 @@ void GLBindingGroup::bind()
             GL_ASSERT(glBindSampler(unit, tex->sampler));
             GL_ASSERT(glUniform1i(location, unit));
         }
-        else if (GLBuffer* buffer = dynamic_cast<GLBuffer*>(entry.resource)) {
+        else if (GLBuffer* buffer = dynamic_cast<GLBuffer*>(entry.resource.get())) {
             
             GL_ASSERT(glBindBufferBase(GL_UNIFORM_BUFFER, found->second.binding, buffer->buffer));
         }
         else {
-            MGP_ERROR("ERROR unknow binding resource type\n");
+            ARHI_ERROR("ERROR unknow binding resource type\n");
         }
     }
 }
 
-bool GLFrameBuffer::update(GLDevice* device, const RenderPassDesc& desc)
+bool GLFrameBuffer::update(GLDevice* device, RenderPassDesc&& desc)
 {
     //try bind surface
     GLSurface* surface = nullptr;
     for (int i = 0; i < desc.colorAttachments.size(); ++i) {
-        GLTexture* textureView = dynamic_cast<GLTexture*>(desc.colorAttachments[i].view);
+        GLTexture* textureView = dynamic_cast<GLTexture*>(desc.colorAttachments[i].view.get());
         if (textureView->fromSurface) {
             surface = textureView->fromSurface;
             break;
@@ -264,7 +322,7 @@ bool GLFrameBuffer::update(GLDevice* device, const RenderPassDesc& desc)
     }
     if (surface) {
         if (desc.colorAttachments.size() != 1 || desc.depthStencilAttachment != nullptr) {
-            MGP_ERROR("Surface Unsupport MulitTarget Render\n");
+            ARHI_ERROR("Surface Unsupport MulitTarget Render\n");
             return false;
         }
 
@@ -282,13 +340,13 @@ bool GLFrameBuffer::update(GLDevice* device, const RenderPassDesc& desc)
         GL_ASSERT(glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer));
 
         for (int i = 0; i < desc.colorAttachments.size(); ++i) {
-            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.colorAttachments[i].view);
+            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.colorAttachments[i].view.get());
             GLenum attachment = GL_COLOR_ATTACHMENT0 + i;
             GL_ASSERT(glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textureView->targetType, textureView->texture, 0));
         }
 
         if (desc.depthStencilAttachment) {
-            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.depthStencilAttachment->view);
+            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.depthStencilAttachment->view.get());
 
             GLenum attachment = GL_DEPTH_STENCIL_ATTACHMENT;
             if (textureView->desc.format == TextureFormat::Depth24PlusStencil8)
@@ -309,7 +367,7 @@ bool GLFrameBuffer::update(GLDevice* device, const RenderPassDesc& desc)
         GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
         {
-            MGP_ERROR("Framebuffer status incomplete: 0x%x\n", fboStatus);
+            ARHI_ERROR("Framebuffer status incomplete: 0x%x\n", fboStatus);
             return false;
         }
     }
@@ -322,7 +380,7 @@ bool GLFrameBuffer::update(GLDevice* device, const RenderPassDesc& desc)
     //        glDrawBuffers(0, NULL);
     //#endif
     //    }
-    this->desc = desc;
+    this->desc = std::move(desc);
 
     return true;
 }
@@ -331,13 +389,13 @@ void GLFrameBuffer::resetDraftFrameBuffer()
 {
     if (draftFrameBuffer && draftFrameBuffer == frameBuffer) {
         for (int i = 0; i < desc.colorAttachments.size(); ++i) {
-            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.colorAttachments[i].view);
+            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.colorAttachments[i].view.get());
             GLenum attachment = GL_COLOR_ATTACHMENT0 + i;
             GL_ASSERT(glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textureView->targetType, 0, 0));
         }
 
         if (desc.depthStencilAttachment) {
-            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.depthStencilAttachment->view);
+            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.depthStencilAttachment->view.get());
 
             GLenum attachment = GL_DEPTH_STENCIL_ATTACHMENT;
             if (textureView->desc.format == TextureFormat::Depth24PlusStencil8)

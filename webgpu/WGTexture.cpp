@@ -36,11 +36,21 @@ void WGTexture::init(WGDevice* adevice, const TextureDesc* desc) {
 
 void WGTexture::setData(const void* textureData, int mipLevel, int depthOrArrayLayers) {
     if (!texture) {
-        MGP_ERROR("Null Texture\n");
+        ARHI_ERROR("Null Texture\n");
         abort();
         return;
     }
 
+    // Calculate texture size for current mip level
+    uint32_t mipWidth = desc.width >> mipLevel;
+    uint32_t mipHeight = desc.height >> mipLevel;
+    if (mipWidth == 0) mipWidth = 1;
+    if (mipHeight == 0) mipHeight = 1;
+
+    int bytePerPixel = getBytePerPixel(desc.format);
+    uint32_t imageSize = mipWidth * mipHeight * bytePerPixel;
+
+    // For cubemap, depthOrArrayLayers specifies the face index (0-5)
     WGPUTexelCopyTextureInfo copyTextureInfo = {
         .texture = texture,
         .mipLevel = (uint32_t)mipLevel,
@@ -48,15 +58,15 @@ void WGTexture::setData(const void* textureData, int mipLevel, int depthOrArrayL
         .aspect = WGPUTextureAspect_All,
     };
     WGPUTexelCopyBufferLayout copyBufferLayout = {
-        .bytesPerRow = (unsigned int)desc.width * desc.bytePerPixel, .rowsPerImage = (unsigned int)desc.height
+        .bytesPerRow = (unsigned int)mipWidth * bytePerPixel, .rowsPerImage = (unsigned int)mipHeight
     };
     WGPUExtent3D extent3d = {
-        desc.width, desc.height, 1
+        mipWidth, mipHeight, 1
     };
     wgpuQueueWriteTexture(
         device->queue,
         &copyTextureInfo,
-        textureData, (unsigned int)desc.width * desc.height * desc.bytePerPixel,
+        textureData, imageSize,
         &copyBufferLayout,
         &extent3d
     );

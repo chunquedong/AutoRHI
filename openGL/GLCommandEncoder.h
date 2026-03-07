@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef GLCommandEncoder_H_
 #define GLCommandEncoder_H_
 
@@ -13,9 +18,9 @@ class GLBindingGroup : public BindingGroup {
 public:
     BindingGroupDesc desc;
 
-    void init(GLDevice* device, const BindingGroupDesc* desc);
+    void init(GLDevice* device, BindingGroupDesc&& desc);
     virtual ~GLBindingGroup();
-    void bind();
+    void bind(GLPipeline* curPipeline);
 };
 
 struct GLFrameBuffer : public FrameBuffer {
@@ -25,7 +30,7 @@ struct GLFrameBuffer : public FrameBuffer {
     GLuint depthStencilBuffer;
     RenderPassDesc desc;
 
-    bool update(GLDevice* device, const RenderPassDesc& desc);
+    bool update(GLDevice* device, RenderPassDesc&& desc);
     void resetDraftFrameBuffer();
     ~GLFrameBuffer();
 };
@@ -49,8 +54,8 @@ public:
     void init(GLDevice* device, const CommandEncoderDesc* desc);
     void setPipeline(Pipeline* pipeline) override;
     void setBindingGroup(BindingGroup* bindingGroup, uint32_t groupIndex) override;
-    void setIndexBuffer(Buffer*, int offset, IndexFormat indexFormat) override;
-    void setVertexBuffer(Buffer*, int offset, int binding) override;
+    void setIndexBuffer(Buffer* buffer, int offset, IndexFormat indexFormat) override;
+    void setVertexBuffer(Buffer* buffer, int offset, int binding) override;
     void drawIndexed(uint32_t indices, uint32_t instances, uint32_t firstindex, int32_t baseVertex, uint32_t firstinstance) override;
 
     void setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override;

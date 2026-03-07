@@ -15,19 +15,19 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 
 	if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 	{
-		MGP_ERROR("%d Validation Layer: Error: %s: %s\n", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
+		ARHI_ERROR("%d Validation Layer: Error: %s: %s\n", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
 	}
 	else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
 	{
-		MGP_ERROR("%d Validation Layer: Warning: %s: %s\n", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
+		ARHI_ERROR("%d Validation Layer: Warning: %s: %s\n", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
 	}
 	else if (message_type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
 	{
-		MGP_ERROR("%d Validation Layer: Performance warning: %s: %s\n", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
+		ARHI_ERROR("%d Validation Layer: Performance warning: %s: %s\n", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
 	}
 	else
 	{
-		MGP_ERROR("%d Validation Layer: Information: %s: %s\n", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
+		ARHI_ERROR("%d Validation Layer: Information: %s: %s\n", callback_data->messageIdNumber, callback_data->pMessageIdName, callback_data->pMessage);
 	}
 	return VK_FALSE;
 }
@@ -124,7 +124,7 @@ void getRequiredExtensions(std::vector<const char*>& requiredExtensions, std::ve
 
 	if (!validate_extensions(required_instance_extensions, available_instance_extensions))
 	{
-		MGP_ERROR("Required instance extensions are missing.\n");
+		ARHI_ERROR("Required instance extensions are missing.\n");
 	}
 
 	if (isDebug) {
@@ -158,7 +158,7 @@ bool VKDevice::init_instance(std::vector<const char*>& requiredExtensions, bool 
 
 	if (volkInitialize())
 	{
-		MGP_ERROR("Failed to initialize volk.\n");
+		ARHI_ERROR("Failed to initialize volk.\n");
 	}
 
 	std::vector<const char*> requested_instance_layers{};
@@ -224,7 +224,7 @@ bool VKDevice::init_device(VkSurfaceKHR surface)
 
 	if (gpu_count < 1)
 	{
-		MGP_ERROR("No physical device found.\n");
+		ARHI_ERROR("No physical device found.\n");
 		return false;
 	}
 
@@ -241,7 +241,7 @@ bool VKDevice::init_device(VkSurfaceKHR surface)
 
 		if (queue_family_count < 1)
 		{
-			MGP_ERROR("No queue family found.\n");
+			ARHI_ERROR("No queue family found.\n");
 			return false;
 		}
 
@@ -264,7 +264,7 @@ bool VKDevice::init_device(VkSurfaceKHR surface)
 
 	if (this->graphics_queue_index < 0)
 	{
-		MGP_ERROR("Did not find suitable device with a queue that supports graphics and presentation.");
+		ARHI_ERROR("Did not find suitable device with a queue that supports graphics and presentation.");
 		return false;
 	}
 
@@ -277,7 +277,7 @@ bool VKDevice::init_device(VkSurfaceKHR surface)
 	std::vector<const char*> required_device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	if (!validate_extensions(required_device_extensions, device_extensions))
 	{
-		MGP_ERROR("Required device extensions are missing.");
+		ARHI_ERROR("Required device extensions are missing.");
 		return false;
 	}
 
@@ -330,7 +330,7 @@ bool VKDevice::init_device(VkSurfaceKHR surface)
 	VkResult result = vmaCreateAllocator(&allocator_info, &this->vma_allocator);
 	if (result != VK_SUCCESS)
 	{
-		MGP_ERROR("Could not create allocator for VMA allocator");
+		ARHI_ERROR("Could not create allocator for VMA allocator");
 		return false;
 	}
 	return true;
@@ -353,7 +353,7 @@ void VKDevice::createDescriptorPool() {
 	poolInfo.maxSets = static_cast<uint32_t>(size);
 
 	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-		MGP_ERROR("failed to create descriptor pool!");
+		ARHI_ERROR("failed to create descriptor pool!");
 	}
 }
 
@@ -364,7 +364,7 @@ VkInstance VKDevice::initInstance(std::vector<const char*>& requiredExtensions, 
 void VKDevice::initDevice(VkSurfaceKHR surface) {
 	if (!surface)
 	{
-		MGP_ERROR("Failed to create window surface.\n");
+		ARHI_ERROR("Failed to create window surface.\n");
 	}
 
 	init_device(surface);
@@ -388,6 +388,7 @@ void VKDevice::initDevice(VkSurfaceKHR surface) {
 }
 
 VKDevice::~VKDevice() {
+	pipelineCache.clear();
 
     if (g_graphicsDevice == this) {
         g_graphicsDevice = nullptr;
@@ -442,55 +443,56 @@ void VKDevice::waitIdle() {
 	}
 }
 
-Surface* VKDevice::createSurface(const SurfaceDesc& d) {
-    VKSurface* fbo = new VKSurface();
+APtr<Surface> VKDevice::createSurface(const SurfaceDesc& d) {
+    auto fbo = makeAPtr<VKSurface>();
     fbo->init(this, &d);
     return fbo;
 }
 
-Pipeline* VKDevice::createPipeline(const PipelineDesc& d) {
-	VKPipeline* t = new VKPipeline();
+APtr<Pipeline> VKDevice::doCreatePipeline(const PipelineDesc& d) {
+	auto t = makeAPtr<VKPipeline>();
 	t->init(this, &d);
 	return t;
 }
 
-Texture* VKDevice::createTexture(const TextureDesc& d) {
-    VKTexture* t = new VKTexture();
+APtr<Texture> VKDevice::createTexture(const TextureDesc& d) {
+    auto t = makeAPtr<VKTexture>();
     t->init(this, &d);
     return t;
 }
 
-Buffer* VKDevice::createBuffer(const BufferDesc& d) {
-    VKBuffer* t = new VKBuffer();
+APtr<Buffer> VKDevice::createBuffer(const BufferDesc& d) {
+    auto t = makeAPtr<VKBuffer>();
     t->init(this, d);
     return t;
 }
 
-CommandEncoder* VKDevice::createCommandEncoder(const CommandEncoderDesc& d) {
-    VKCommandEncoder* t = new VKCommandEncoder();
+APtr<CommandEncoder> VKDevice::createCommandEncoder(const CommandEncoderDesc& d) {
+    auto t = makeAPtr<VKCommandEncoder>();
     t->init(this, &d);
     return t;
 }
 
-Shader* VKDevice::createShader(const ShaderDesc& d) {
-    return VKShader::create(this, &d);
+APtr<Shader> VKDevice::createShader(const ShaderDesc& d) {
+    auto shader = VKShader::create(this, &d);
+    return shader;
 }
 
-Sampler* VKDevice::createSampler(const SamplerDesc& d) {
-    VKSampler* t = new VKSampler();
+APtr<Sampler> VKDevice::createSampler(const SamplerDesc& d) {
+    auto t = makeAPtr<VKSampler>();
     t->init(this, &d);
     return t;
 }
 
-BindingGroup* VKDevice::createBindingGroup(const BindingGroupDesc& d) {
-    VKBindingGroup* t = new VKBindingGroup();
-    t->init(this, &d);
+APtr<BindingGroup> VKDevice::createBindingGroup(BindingGroupDesc&& d) {
+    auto t = makeAPtr<VKBindingGroup>();
+    t->init(this, std::move(d));
     return t;
 }
 
-FrameBuffer* arhi::VKDevice::createFrameBuffer(const RenderPassDesc& desc)
+APtr<FrameBuffer> arhi::VKDevice::createFrameBuffer(RenderPassDesc&& desc)
 {
-	VKFrameBuffer* t = new VKFrameBuffer();
-	t->init(this, desc);
+	auto t = makeAPtr<VKFrameBuffer>();
+	t->init(this, std::move(desc));
 	return t;
 }

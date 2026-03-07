@@ -2,6 +2,7 @@
 
 using namespace arhi;
 
+
 GLint getFormatInternal(TextureFormat format)
 {
     switch (format)
@@ -58,7 +59,7 @@ GLint getFormatInternal(TextureFormat format)
     case TextureFormat::RG16Float:
         return GL_RG16F;
     default:
-        MGP_ERROR("ERROR: unsupport texture format %d\n", format);
+        ARHI_ERROR("ERROR: unsupport texture format %d\n", format);
         return 0;
     }
 }
@@ -188,9 +189,11 @@ void GLTexture::init(GLDevice* adevice, const TextureDesc* desc) {
 
     GLenum target = GL_TEXTURE_2D;
     switch (desc->type) {
+#ifndef GLAD
     case TextureType::_1D:
         target = GL_TEXTURE_1D;
         break;
+#endif
     case TextureType::_2D:
         target = GL_TEXTURE_2D;
         break;
@@ -211,13 +214,6 @@ void GLTexture::init(GLDevice* adevice, const TextureDesc* desc) {
     this->texture = textureId;
     GL_ASSERT(glBindTexture(target, textureId));
     GL_ASSERT(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
-#ifndef OPENGL_ES
-    // glGenerateMipmap is new in OpenGL 3.0. For OpenGL 2.0 we must fallback to use glTexParameteri
-    // with GL_GENERATE_MIPMAP prior to actual texture creation (glTexImage2D)
-    if (desc->mipLevelCount > 1 && !std::addressof(glGenerateMipmap))
-        GL_ASSERT(glTexParameteri(target, GL_GENERATE_MIPMAP, GL_TRUE));
-#endif
-
     GL_ASSERT(glBindTexture(target, 0));
 
     this->device = adevice;
@@ -227,13 +223,15 @@ void GLTexture::init(GLDevice* adevice, const TextureDesc* desc) {
 
 void GLTexture::setData(const void* textureData, int mipLevel, int depthOrArrayLayers) {
     if (!texture) {
-        MGP_ERROR("Null Texture\n");
+        ARHI_ERROR("Null Texture\n");
         abort();
         return;
     }
 
-    unsigned int width = desc.width;
-    unsigned int height = desc.height;
+    unsigned int width = desc.width >> mipLevel;
+    unsigned int height = desc.height >> mipLevel;
+    if (width == 0) width = 1;
+    if (height == 0) height = 1;
 
     GLenum target = this->targetType;
 
@@ -250,32 +248,58 @@ void GLTexture::setData(const void* textureData, int mipLevel, int depthOrArrayL
     GL_ASSERT(glBindTexture(target, textureId));
 
     // Load the texture
-    size_t bpp = desc.bytePerPixel;
+    size_t bpp = getBytePerPixel(desc.format);
     if (desc.type == TextureType::_2D)
     {
-        GL_ASSERT(glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, ioFormat, texelType, textureData));
+        if (textureData) {
+            GL_ASSERT(glTexImage2D(GL_TEXTURE_2D, mipLevel, internalFormat, width, height, 0, ioFormat, texelType, textureData));
+        }
+        // Generate mipmaps if this is the base level and mipmap count > 1
+        if (mipLevel == 0 && desc.mipLevelCount > 1) {
+            GL_ASSERT(glGenerateMipmap(target));
+        }
     }
     else if (desc.type == TextureType::_2DArray) {
-        //(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void *pixels);
-        GL_ASSERT(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, internalFormat, width, height, 0, 0, ioFormat, texelType, NULL));
-
-        const unsigned char* texturePtr = (const unsigned char*)textureData;
-        //(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels);
-        GL_ASSERT(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, depthOrArrayLayers, width, height, 1, ioFormat, texelType, texturePtr));
+        if (textureData) {
+            //(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void *pixels);
+            GL_ASSERT(glTexImage3D(GL_TEXTURE_2D_ARRAY, mipLevel, internalFormat, width, height, depthOrArrayLayers, 0, ioFormat, texelType, textureData));
+        }
+        // Generate mipmaps if this is the base level and mipmap count > 1
+        if (mipLevel == 0 && desc.mipLevelCount > 1) {
+            GL_ASSERT(glGenerateMipmap(target));
+        }
     }
     else if (desc.type == TextureType::Cube)
     {
         // Texture Cube
-        const unsigned char* texturePtr = (const unsigned char*)textureData;
-        GL_ASSERT(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + mipLevel, 0, internalFormat, width, height, 0, ioFormat, texelType, texturePtr));
+        if (textureData) {
+            const unsigned char* texturePtr = (const unsigned char*)textureData;
+            size_t faceSize = width * height * bpp;
+            
+            // Set each cube face
+            for (int face = 0; face < 6; face++) {
+                GLenum faceTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+                const void* faceData = texturePtr + (face * faceSize);
+                GL_ASSERT(glTexImage2D(faceTarget, mipLevel, internalFormat, width, height, 0, ioFormat, texelType, faceData));
+            }
+        }
+        // Generate mipmaps if this is the base level and mipmap count > 1
+        if (mipLevel == 0 && desc.mipLevelCount > 1) {
+            GL_ASSERT(glGenerateMipmap(target));
+            // Set min filter with mipmap support for cube maps
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        } else {
+            // Set min filter without mipmap for cube maps
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        }
+        // Set mag filter (no mipmap for magnification)
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     }
     else {
-        MGP_ERROR("Unsupport Texture type: %d\n", desc.type);
+        ARHI_ERROR("Unsupport Texture type: %d\n", desc.type);
     }
 
     GL_ASSERT(glBindTexture(target, 0));
@@ -335,23 +359,105 @@ GLenum wrapModeToGl(SamplerAddressMode mode) {
     return 0;
 }
 
+GLenum getMinFilterWithMipmap(SamplerFilterMode minFilter, SamplerFilterMode mipmapFilter) {
+    switch (minFilter) {
+    case SamplerFilterMode::Nearest:
+        switch (mipmapFilter) {
+        case SamplerFilterMode::Nearest:
+            return GL_NEAREST_MIPMAP_NEAREST;
+        case SamplerFilterMode::Linear:
+            return GL_NEAREST_MIPMAP_LINEAR;
+        default:
+            return GL_NEAREST;
+        }
+    case SamplerFilterMode::Linear:
+        switch (mipmapFilter) {
+        case SamplerFilterMode::Nearest:
+            return GL_LINEAR_MIPMAP_NEAREST;
+        case SamplerFilterMode::Linear:
+            return GL_LINEAR_MIPMAP_LINEAR;
+        default:
+            return GL_LINEAR;
+        }
+    default:
+        return GL_NEAREST;
+    }
+}
+
 void GLSampler::init(GLDevice* device, const SamplerDesc* desc)
 {
     glGenSamplers(1, &sampler);
 
-    GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, filterToGl(desc->minFilter)));
+    bool isMipmap = false;
+    if (texture) {
+        GLTexture* tx = dynamic_cast<GLTexture*>(texture.get());
+        if (tx && tx->desc.mipLevelCount > 1) {
+            isMipmap = true;
+        }
+    }
+
+    if (isMipmap) {
+        // Set min filter with mipmap support
+        GLenum minFilter = getMinFilterWithMipmap(desc->minFilter, desc->mipmapFilter);
+        GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, minFilter));
+    }
+    else {
+        GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, filterToGl(desc->minFilter)));
+    }
+
+    // Set mag filter (no mipmap for magnification)
     GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, filterToGl(desc->magFilter)));
+    
+    // Set wrap modes
     GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, wrapModeToGl(desc->addressModeU)));
     GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, wrapModeToGl(desc->addressModeV)));
 #if defined(GL_TEXTURE_WRAP_R) // OpenGL ES 3.x and up, OpenGL 1.2 and up
     GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, wrapModeToGl(desc->addressModeW)));
 #endif
 
+    // Set LOD range
+    GL_ASSERT(glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, desc->lodMinClamp));
+    GL_ASSERT(glSamplerParameterf(sampler, GL_TEXTURE_MAX_LOD, desc->lodMaxClamp));
+
+    // Set anisotropy if requested
     if (desc->maxAnisotropy > 1) {
+#ifndef GLAD
         GLfloat max_tex = 1;
         GL_ASSERT(glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_tex));
         //printf("GL_TEXTURE_MAX_ANISOTROPY_EXT:%d\n", max_tex);
         GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_MAX_ANISOTROPY_EXT, (int)max_tex));
+#endif
+    }
+
+    // Set compare function if needed
+    if (desc->compare != CompareFunction::Undefined) {
+        GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE));
+        switch (desc->compare) {
+        case CompareFunction::Never:
+            GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_FUNC, GL_NEVER));
+            break;
+        case CompareFunction::Less:
+            GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_FUNC, GL_LESS));
+            break;
+        case CompareFunction::Equal:
+            GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_FUNC, GL_EQUAL));
+            break;
+        case CompareFunction::LessEqual:
+            GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL));
+            break;
+        case CompareFunction::Greater:
+            GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_FUNC, GL_GREATER));
+            break;
+        case CompareFunction::NotEqual:
+            GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_FUNC, GL_NOTEQUAL));
+            break;
+        case CompareFunction::GreaterEqual:
+            GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_FUNC, GL_GEQUAL));
+            break;
+        case CompareFunction::Always:
+            GL_ASSERT(glSamplerParameteri(sampler, GL_TEXTURE_COMPARE_FUNC, GL_ALWAYS));
+            break;
+        }
     }
 }
 

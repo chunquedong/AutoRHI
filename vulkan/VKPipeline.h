@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef VKPipeline_H_
 #define VKPipeline_H_
 
@@ -12,10 +17,9 @@ public:
 
 	/// The graphics pipeline.
 	VkPipeline pipeline = VK_NULL_HANDLE;
-
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-
-	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkRenderPass renderPass = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 
     bool init(VKDevice* device, const PipelineDesc* d);
     virtual ~VKPipeline();

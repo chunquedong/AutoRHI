@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef VKTexture_H_
 #define VKTexture_H_
 
@@ -17,6 +22,7 @@ public:
     VkDeviceMemory textureImageMemory = nullptr;
     VkImageView textureView = nullptr;
     //VkSampler textureSampler;
+    VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 public:
     FrameState* frameState = nullptr;

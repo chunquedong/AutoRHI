@@ -16,53 +16,55 @@ GLDevice::~GLDevice() {
 }
 
 
-Surface* GLDevice::createSurface(const SurfaceDesc& d) {
-    GLSurface* fbo = new GLSurface();
+APtr<Surface> GLDevice::createSurface(const SurfaceDesc& d) {
+    auto fbo = makeAPtr<GLSurface>();
     fbo->init(this, &d);
     return fbo;
 }
 
-Pipeline* GLDevice::createPipeline(const PipelineDesc& d) {
-    return GLPipeline::create(this, &d);
+APtr<Pipeline> GLDevice::doCreatePipeline(const PipelineDesc& d) {
+    auto pipeline = GLPipeline::create(this, &d);
+    return pipeline;
 }
 
-Texture* GLDevice::createTexture(const TextureDesc& d) {
-    GLTexture* t = new GLTexture();
+APtr<Texture> GLDevice::createTexture(const TextureDesc& d) {
+    auto t = makeAPtr<GLTexture>();
     t->init(this, &d);
     return t;
 }
 
-Buffer* GLDevice::createBuffer(const BufferDesc& d) {
-    GLBuffer* t = new GLBuffer();
+APtr<Buffer> GLDevice::createBuffer(const BufferDesc& d) {
+    auto t = makeAPtr<GLBuffer>();
     t->init(this, &d);
     return t;
 }
 
-CommandEncoder* GLDevice::createCommandEncoder(const CommandEncoderDesc& d) {
-    GLCommandEncoder* t = new GLCommandEncoder();
+APtr<CommandEncoder> GLDevice::createCommandEncoder(const CommandEncoderDesc& d) {
+    auto t = makeAPtr<GLCommandEncoder>();
     t->init(this, &d);
     return t;
 }
 
-Shader* GLDevice::createShader(const ShaderDesc& d) {
-    return GLShader::create(this, &d);
+APtr<Shader> GLDevice::createShader(const ShaderDesc& d) {
+    auto shader = GLShader::create(this, &d);
+    return shader;
 }
 
-Sampler* GLDevice::createSampler(const SamplerDesc& d) {
-    GLSampler* t = new GLSampler();
+APtr<Sampler> GLDevice::createSampler(const SamplerDesc& d) {
+    auto t = makeAPtr<GLSampler>();
     t->init(this, &d);
     return t;
 }
 
-BindingGroup* GLDevice::createBindingGroup(const BindingGroupDesc& d) {
-    GLBindingGroup* t = new GLBindingGroup();
-    t->init(this, &d);
+APtr<BindingGroup> GLDevice::createBindingGroup(BindingGroupDesc&& d) {
+    auto t = makeAPtr<GLBindingGroup>();
+    t->init(this, std::move(d));
     return t;
 }
 
-FrameBuffer* GLDevice::createFrameBuffer(const RenderPassDesc& desc)
+APtr<FrameBuffer> GLDevice::createFrameBuffer(RenderPassDesc&& desc)
 {
-    GLFrameBuffer* t = new GLFrameBuffer();
-    t->update(this, desc);
+    auto t = makeAPtr<GLFrameBuffer>();
+    t->update(this, std::move(desc));
     return t;
 }

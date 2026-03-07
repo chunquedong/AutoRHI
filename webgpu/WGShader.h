@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef WGShader_H_
 #define WGShader_H_
 
@@ -14,7 +19,7 @@ public:
 
     WGPUShaderModule shaderModule;
 
-    static WGShader* create(WGDevice* device, const ShaderDesc* d);
+    static APtr<WGShader> create(WGDevice* device, const ShaderDesc* d);
     virtual ~WGShader();
 };
 

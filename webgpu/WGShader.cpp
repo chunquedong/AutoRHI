@@ -4,6 +4,7 @@
 
 using namespace arhi;
 
+#if 0
 static void reflectionCallback(WGPUReflectionInfoRequestStatus status, WGPUReflectionInfo const* reflectionInfo, void* userdata1, void* userdata2) {
     WGShader* shader = (WGShader*)userdata1;
 
@@ -30,7 +31,7 @@ static void reflectionCallback(WGPUReflectionInfoRequestStatus status, WGPURefle
             uniform.samplerBindingType = reflectionInfo->globals[i].sampler.type;
         }
         else {
-            MGP_ERROR("Unsupport reflect uniform type\n");
+            ARHI_ERROR("Unsupport reflect uniform type\n");
             continue;
         }
 
@@ -40,11 +41,11 @@ static void reflectionCallback(WGPUReflectionInfoRequestStatus status, WGPURefle
         const WGPUGlobalReflectionInfo* toBePrinted = reflectionInfo->globals + i;
 
         memcpy(namebuffer, toBePrinted->name.data, toBePrinted->name.length);
-        MGP_ERROR("Name: %s, location: %u, type: %s", namebuffer, toBePrinted->binding, typedesc);
+        ARHI_ERROR("Name: %s, location: %u, type: %s", namebuffer, toBePrinted->binding, typedesc);
         if (reflectionInfo->globals[i].buffer.type != WGPUBufferBindingType_BindingNotUsed) {
-            MGP_ERROR(", minBindingSize = %d", (int)toBePrinted->buffer.minBindingSize);
+            ARHI_ERROR(", minBindingSize = %d", (int)toBePrinted->buffer.minBindingSize);
         }
-        MGP_ERROR("\n");
+        ARHI_ERROR("\n");
 #endif
 
         const WGPUGlobalReflectionInfo* info = reflectionInfo->globals + i;
@@ -76,7 +77,7 @@ static void reflectionCallback(WGPUReflectionInfoRequestStatus status, WGPURefle
                     attri.format = WGPUVertexFormat_Float32x4;
                 }
             }
-            //MGP_ERROR("input attribute: %d, %d\n", info->location, attri.format);
+            //ARHI_ERROR("input attribute: %d, %d\n", info->location, attri.format);
             shader->reflection.inputAttrs.push_back(attri);
         }
     }
@@ -101,40 +102,67 @@ static void reflectionCallback(WGPUReflectionInfoRequestStatus status, WGPURefle
                     attri.format = WGPUVertexFormat_Float32x4;
                 }
             }
-            //MGP_ERROR("output attribute: %d, %d\n", info->location, attri.format);
+            //ARHI_ERROR("output attribute: %d, %d\n", info->location, attri.format);
             shader->reflection.outputAttrs.push_back(attri);
         }
     }
 }
 
+#endif
 
-WGShader* WGShader::create(WGDevice* device, const ShaderDesc* d) {
+APtr<WGShader> WGShader::create(WGDevice* device, const ShaderDesc* d) {
 
     const char* source = d->source;
     WGPUShaderStage stage = (WGPUShaderStage)d->stage;
-    WGPUSType language = (WGPUSType)d->language;
 
+    std::vector<uint32_t> spirvSource;
     WGPUShaderModule shaderModule = nullptr;
-    if (language == WGPUSType_ShaderSourceGLSL) {
-        std::vector<uint32_t> spirvSource;
+
+    if (d->language == ShaderLanguage::GLSL) {
         compileGLSL(source, d->stage, spirvSource);
+    }
+    else if (d->language == ShaderLanguage::SPIRV) {
+        // For SPIR-V input, create the shader module directly from the SPIR-V data
+        const uint32_t* spirvCode = reinterpret_cast<const uint32_t*>(source);
+        size_t spirvSize = d->sourceLen / sizeof(uint32_t);
         
+        spirvSource.resize(spirvSize);
+        memcpy(spirvSource.data(), spirvCode, d->sourceLen);
+    }
+    else if (d->language == ShaderLanguage::WGSL) {
+        compileWGSL(source, d->stage, spirvSource);
+    }
+    else {
+        ARHI_ERROR("Unsupport Shader Language %d\n", d->language);
+        return nullptr;
+    }
+
+    std::string wgslCode;
+    if (spirvSource.size() > 0) {
+#ifdef __EMSCRIPTEN__
+        // if (!spirvToWGSL((const char*)spirvSource.data(), spirvSource.size()*sizeof(uint32_t), wgslCode)) {
+        //     ARHI_ERROR("spirvToWgsl failed\n");
+        //     return nullptr;
+        // }
+        // source = wgslCode.c_str();
+        // printf("WGSL: %s\n", source);
+#else
         WGPUShaderSourceSPIRV shaderSourceSpirv = {
             .chain = {
                 .sType = WGPUSType_ShaderSourceSPIRV
             },
-            //TODO BUG: In uin32_t's, NOT in bytes
-            .codeSize = (uint32_t)spirvSource.size() * 4,
+            .codeSize = (uint32_t)spirvSource.size(),
             .code = spirvSource.data(),
         };
 
         WGPUShaderModuleDescriptor vertexDesc = { .nextInChain = &shaderSourceSpirv.chain };
         shaderModule = wgpuDeviceCreateShaderModule(device->device, &vertexDesc);
+#endif
     }
-    else {
-        WGPUShaderSourceGLSL vertexCodeDesc = {
-            .chain = {.sType = (WGPUSType)d->language },
-            .stage = (WGPUShaderStage)stage,
+
+    if (!shaderModule && (d->language == ShaderLanguage::WGSL || wgslCode.size() > 0)) {
+        WGPUShaderSourceWGSL vertexCodeDesc = {
+            .chain = {.sType = WGPUSType_ShaderSourceWGSL },
             .code = {
                 .data = source,
                 .length = WGPU_STRLEN
@@ -148,15 +176,15 @@ WGShader* WGShader::create(WGDevice* device, const ShaderDesc* d) {
         return nullptr;
     }
 
-    WGShader* shader = new WGShader();
+    auto shader = makeAPtr<WGShader>();
     shader->stage = d->stage;
     shader->shaderModule = shaderModule;
-
+#if 0
     WGPUReflectionInfoCallbackInfo reflectionCallbackInfo = {
             .nextInChain = NULL,
             .mode = WGPUCallbackMode_WaitAnyOnly,
             .callback = reflectionCallback,
-            .userdata1 = shader,
+            .userdata1 = shader.get(),
             .userdata2 = NULL
     };
     WGPUFuture future = wgpuShaderModuleGetReflectionInfo(shaderModule, reflectionCallbackInfo);
@@ -165,7 +193,11 @@ WGShader* WGShader::create(WGDevice* device, const ShaderDesc* d) {
         .completed = 0
     };
     wgpuInstanceWaitAny(device->instance, 1, &futureWaitInfo, 1000000000);
-
+#else
+    if (spirvSource.size() > 0) {
+        spirvReflect(spirvSource, d->stage, shader->reflection);
+    }
+#endif
     return shader;
 }
 

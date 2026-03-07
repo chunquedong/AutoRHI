@@ -63,13 +63,13 @@ bool VKCommandEncoder::beginPass(FrameBuffer* frameBuffer) {
 	std::vector<VkImageView> colorAttachments;
 	frameState = renderPass->frameState;
 	for (auto& it : renderPass->desc.colorAttachments) {
-		textureView = dynamic_cast<VKTexture*>(it.view);
+		textureView = dynamic_cast<VKTexture*>(it.view.get());
 		colorAttachments.push_back(textureView->textureView);
 		clear_value.color = { it.clearValue[0], it.clearValue[1], it.clearValue[2], it.clearValue[3] };
 	}
 
 	if (!textureView) {
-		MGP_ERROR("Invalide colorAttachments\n");
+		ARHI_ERROR("Invalide colorAttachments\n");
 		return false;
 	}
 
@@ -88,8 +88,10 @@ bool VKCommandEncoder::beginPass(FrameBuffer* frameBuffer) {
 	vkCmdBeginRenderPass(commandBuffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 
 	VkViewport vp{
+		.x = 0,
+		.y = (float)viewHeight,
 		.width = (float)viewWidth,
-		.height = (float)viewHeight,
+		.height = -(float)viewHeight,
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f };
 	// Set viewport dynamically
@@ -143,8 +145,11 @@ void VKCommandEncoder::wait()
 {
 	if (queue_submit_fence != VK_NULL_HANDLE)
 	{
-		vkWaitForFences(this->device->device, 1, &queue_submit_fence, true, UINT64_MAX);
-		vkResetFences(this->device->device, 1, &queue_submit_fence);
+		// Only wait if the fence is not already signaled
+		VkResult result = vkWaitForFences(this->device->device, 1, &queue_submit_fence, true, UINT64_MAX);
+		if (result == VK_SUCCESS) {
+			vkResetFences(this->device->device, 1, &queue_submit_fence);
+		}
 	}
 }
 
@@ -205,23 +210,25 @@ void VKCommandEncoder::setScissorRect(uint32_t x, uint32_t y, uint32_t width, ui
 
 void VKCommandEncoder::setViewport(float x, float y, float width, float height, float minDepth, float maxDepth) {
 	VkViewport vp{
+		.x = x,
+		.y = height-y,
 		.width = (width),
-		.height = (height),
+		.height = (-height),
 		.minDepth = minDepth,
 		.maxDepth = maxDepth };
 	// Set viewport dynamically
 	vkCmdSetViewport(commandBuffer, 0, 1, &vp);
 }
 
-void VKBindingGroup::init(VKDevice* device, const BindingGroupDesc* desc)
+void VKBindingGroup::init(VKDevice* device, BindingGroupDesc&& desc)
 {
     //this->desc = *desc;
-    VKPipeline* pipeline = dynamic_cast<VKPipeline*>(desc->pipeline);
+    VKPipeline* pipeline = dynamic_cast<VKPipeline*>(desc.pipeline);
 	pipelineLayout = pipeline->pipelineLayout;
     
     //index sresource
     std::map<std::string, const BindingEntry*> resourceMap;
-    for (auto it = desc->resources.begin(); it != desc->resources.end(); ++it) {
+    for (auto it = desc.resources.begin(); it != desc.resources.end(); ++it) {
         const BindingEntry* entry = &(*it);
         resourceMap[entry->name] = entry;
     }
@@ -230,10 +237,10 @@ void VKBindingGroup::init(VKDevice* device, const BindingGroupDesc* desc)
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = device->descriptorPool;
 	allocInfo.descriptorSetCount = static_cast<uint32_t>(1);
-	allocInfo.pSetLayouts = &pipeline->descriptorSetLayouts[desc->bindingGroup];
+	allocInfo.pSetLayouts = &pipeline->descriptorSetLayouts[desc.bindingGroup];
 
 	if (vkAllocateDescriptorSets(device->device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
-		MGP_ERROR("failed to allocate descriptor sets!");
+		ARHI_ERROR("failed to allocate descriptor sets!");
 	}
 
 	std::vector<VkWriteDescriptorSet> descriptorWrites{};
@@ -241,11 +248,11 @@ void VKBindingGroup::init(VKDevice* device, const BindingGroupDesc* desc)
 		const UniformVar& uniform = it->second;
 		auto found = resourceMap.find(uniform.name);
 		if (found == resourceMap.end()) {
-			MGP_ERROR("ERROR unknow binding resource: %s\n", uniform.name.c_str());
+			ARHI_ERROR("ERROR unknow binding resource: %s\n", uniform.name.c_str());
 			continue;
 		}
 		int binding = uniform.binding + found->second->offset;
-		Resource* resource = found->second->resource;
+		Resource* resource = found->second->resource.get();
 
 		if (VKTexture* tex = dynamic_cast<VKTexture*>(resource)) {
 			VkDescriptorImageInfo imageInfo{};
@@ -296,11 +303,13 @@ void VKBindingGroup::init(VKDevice* device, const BindingGroupDesc* desc)
 			descriptorWrites.push_back(entry);
 		}
 		else {
-			MGP_ERROR("ERROR unknow binding resource type\n");
+			ARHI_ERROR("ERROR unknow binding resource type\n");
 		}
 	}
 
 	vkUpdateDescriptorSets(device->device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
+	this->desc = std::move(desc);
 }
 
 VKBindingGroup::~VKBindingGroup()
@@ -369,14 +378,14 @@ VkRenderPass create_render_pass(VKDevice* device, const RenderPassDesc& desc)
 	return renderPass;
 }
 
-bool VKFrameBuffer::init(VKDevice *device, const RenderPassDesc& desc) {
+bool VKFrameBuffer::init(VKDevice *device, RenderPassDesc&& desc) {
 	this->device = device;
 
 	VKTexture* textureView = nullptr;
 	std::vector<VkImageView> colorAttachments;
 	frameState = nullptr;
 	for (auto& it : desc.colorAttachments) {
-		textureView = dynamic_cast<VKTexture*>(it.view);
+		textureView = dynamic_cast<VKTexture*>(it.view.get());
 		if (textureView->frameState) {
 			frameState = textureView->frameState;
 		}
@@ -384,7 +393,7 @@ bool VKFrameBuffer::init(VKDevice *device, const RenderPassDesc& desc) {
 	}
 
 	if (!textureView) {
-		MGP_ERROR("Invalide colorAttachments\n");
+		ARHI_ERROR("Invalide colorAttachments\n");
 		return false;
 	}
 
@@ -407,7 +416,7 @@ bool VKFrameBuffer::init(VKDevice *device, const RenderPassDesc& desc) {
 	VK_CHECK(vkCreateFramebuffer(device->device, &fb_info, nullptr, &frameBuffer));
 
 	this->framebuffer = frameBuffer;
-	this->desc = desc;
+	this->desc = std::move(desc);
 	return true;
 }
 

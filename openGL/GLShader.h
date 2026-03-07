@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef GLShader_H_
 #define GLShader_H_
 
@@ -17,7 +22,7 @@ public:
 
     GLuint shaderModule;
 
-    static GLShader* create(GLDevice* device, const ShaderDesc* d);
+    static APtr<GLShader> create(GLDevice* device, const ShaderDesc* d);
     virtual ~GLShader();
 };
 

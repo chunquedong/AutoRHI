@@ -1,0 +1,20 @@
+name = autoRhi
+summary = RHI
+outType = exe
+version = 1.0
+srcDirs = rhi/, example/, webgpu/, spirv/
+excludeSrc = .*(volk.c).*
+depends = glslang 16, simple_wgsl 1
+incDirs = ./
+defines = SUPPORT_GLSL,WEBGPU,SIMPLE_WGSL
+
+extConfigs.cppflags = --use-port=emdawnwebgpu -g 
+
+extConfigs.linkflags= -sUSE_GLFW=3 --use-port=emdawnwebgpu -sFETCH -sJSPI \
+-sSAFE_HEAP=1 -g -sSTACK_OVERFLOW_CHECK=2 -sASSERTIONS -sMAXIMUM_MEMORY=2GB -gsource-map \
+-sSAFE_HEAP=1 -sASSERTIONS=1 -sSTACK_OVERFLOW_CHECK=2 -sSTACK_SIZE=10MB -g \
+-sMODULARIZE -s EXPORT_NAME="createMyModule" -s TOTAL_MEMORY=1000MB \
+-sEXPORTED_FUNCTIONS=_main,_malloc,_free -sPTHREAD_POOL_SIZE=4 -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE=$stringToUTF8OnStack \
+-sEXPORTED_RUNTIME_METHODS=ccall,cwrap,UTF8ToString
+
+compiler = emcc

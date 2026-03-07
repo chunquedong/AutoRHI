@@ -25,12 +25,12 @@ bool WGCommandEncoder::beginPass(const RenderPassDesc& desc) {
     std::vector<WGPURenderPassColorAttachment> colorAttachments;
     for (auto& it : desc.colorAttachments) {
 
-        WGTexture* textureView = dynamic_cast<WGTexture*>(it.view);
+        WGTexture* textureView = dynamic_cast<WGTexture*>(it.view.get());
 
         WGPURenderPassColorAttachment colorAttachment = {
             .view = textureView->textureView,
-            .resolveTarget = NULL,
             .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+            .resolveTarget = NULL,
             .loadOp = (WGPULoadOp)it.loadOp,
             .storeOp = (WGPUStoreOp)it.storeOp,
             .clearValue = {it.clearValue[0], it.clearValue[1], it.clearValue[2], it.clearValue[3]},
@@ -47,7 +47,7 @@ bool WGCommandEncoder::beginPass(const RenderPassDesc& desc) {
     WGPURenderPassDepthStencilAttachment depthStencelAttachment = {};
     if (desc.depthStencilAttachment) {
         depthStencelAttachment = {
-            .view = dynamic_cast<WGTexture*>(desc.depthStencilAttachment->view)->textureView,
+            .view = dynamic_cast<WGTexture*>(desc.depthStencilAttachment->view.get())->textureView,
             .depthLoadOp = (WGPULoadOp)desc.depthStencilAttachment->depthLoadOp,
             .depthStoreOp = (WGPUStoreOp)desc.depthStencilAttachment->depthStoreOp,
             .depthClearValue = desc.depthStencilAttachment->depthClearValue,
@@ -114,14 +114,14 @@ void WGCommandEncoder::setViewport(float x, float y, float width, float height, 
     wgpuRenderPassEncoderSetViewport(renderPassEncoder, x, y, width, height, minDepth, maxDepth);
 }
 
-void WGBindingGroup::init(WGDevice* device, const BindingGroupDesc* desc)
+void WGBindingGroup::init(WGDevice* device, BindingGroupDesc&& desc)
 {
     //this->desc = *desc;
-    WGPipeline* pipeline = dynamic_cast<WGPipeline*>(desc->pipeline);
+    WGPipeline* pipeline = dynamic_cast<WGPipeline*>(desc.pipeline);
     
     //index sresource
     std::map<std::string, const BindingEntry*> resourceMap;
-    for (auto it = desc->resources.begin(); it != desc->resources.end(); ++it) {
+    for (auto it = desc.resources.begin(); it != desc.resources.end(); ++it) {
         const BindingEntry* entry = &(*it);
         resourceMap[entry->name] = entry;
     }
@@ -132,11 +132,11 @@ void WGBindingGroup::init(WGDevice* device, const BindingGroupDesc* desc)
         const UniformVar& uniform = it->second;
         auto found = resourceMap.find(uniform.name);
         if (found == resourceMap.end()) {
-            MGP_ERROR("ERROR unknow binding resource: %s\n", uniform.name.c_str());
+            ARHI_ERROR("ERROR unknow binding resource: %s\n", uniform.name.c_str());
             continue;
         }
         int binding = uniform.binding + found->second->offset;
-        Resource* resource = found->second->resource;
+        Resource* resource = found->second->resource.get();
 
         if (WGTexture* tex = dynamic_cast<WGTexture*>(resource)) {
             WGPUBindGroupEntry entry = {
@@ -161,18 +161,20 @@ void WGBindingGroup::init(WGDevice* device, const BindingGroupDesc* desc)
             bindGroupEntries.push_back(entry);
         }
         else {
-            MGP_ERROR("ERROR unknow binding resource type\n");
+            ARHI_ERROR("ERROR unknow binding resource type\n");
         }
     }
 
     //mapping to WGPU
     WGPUBindGroupDescriptor bindGroupDesc = {
-        .layout = pipeline->bindGroupLayoutList.at(desc->bindingGroup),
+        .layout = pipeline->bindGroupLayoutList.at(desc.bindingGroup),
         .entryCount = bindGroupEntries.size(),
         .entries = bindGroupEntries.data()
     };
     WGPUBindGroup bind_group = wgpuDeviceCreateBindGroup(device->device, &bindGroupDesc);
     bindGroup = bind_group;
+
+    this->desc = std::move(desc);
 }
 
 WGBindingGroup::~WGBindingGroup()

@@ -5,7 +5,7 @@
 using namespace arhi;
 
 
-VKShader* VKShader::create(VKDevice* device, const ShaderDesc* d) {
+APtr<VKShader> VKShader::create(VKDevice* device, const ShaderDesc* d) {
 
     const char* source = d->source;
     ShaderStage stage = d->stage;
@@ -17,7 +17,7 @@ VKShader* VKShader::create(VKDevice* device, const ShaderDesc* d) {
         std::vector<uint32_t> spirvSource;
         compileGLSL(source, stage, spirvSource);
 
-        spirvReflect(spirvSource, reflection);
+        spirvReflect(spirvSource, stage, reflection);
 
         VkShaderModuleCreateInfo module_info{
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -27,14 +27,14 @@ VKShader* VKShader::create(VKDevice* device, const ShaderDesc* d) {
         VK_CHECK(vkCreateShaderModule(device->device, &module_info, nullptr, &shaderModule));
     }
     else {
-        MGP_ERROR("Unsupport Shader Language %d\n", language);
+        ARHI_ERROR("Unsupport Shader Language %d\n", language);
     }
 
     if (!shaderModule) {
         return nullptr;
     }
 
-    VKShader* shader = new VKShader();
+    auto shader = makeAPtr<VKShader>();
     shader->stage = d->stage;
     shader->device = device;
     shader->reflection = std::move(reflection);

@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 chunquedong
+ *
+ * Licensed under the Mozilla Public License Version 2.0
+ */
 #ifndef GLPipeline_H_
 #define GLPipeline_H_
 
@@ -12,8 +17,16 @@ public:
     ShaderReflection reflection;
     GLuint program;
 
-    static GLPipeline* create(GLDevice* device, const PipelineDesc* d);
+    static APtr<GLPipeline> create(GLDevice* device, const PipelineDesc* d);
     virtual ~GLPipeline();
+    
+    void applyState();
+private:
+    // State application methods
+    void applyPrimitiveState();
+    void applyDepthStencilState();
+    void applyBlendState();
+    void applyMultisampleState();
 private:
     void reflect(const PipelineDesc* d);
     void buildBindGroupLayoutList(GLDevice* adevice);

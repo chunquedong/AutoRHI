@@ -119,23 +119,7 @@ void VKSurface::teardown_per_frame(FrameState& per_frame)
 		per_frame.swapchain_release_semaphore = VK_NULL_HANDLE;
 	}
 
-	if (per_frame.commandEncoder)
-	{
-		delete per_frame.commandEncoder;
-		per_frame.commandEncoder = nullptr;
-	}
-
-	if (per_frame.frameBuffer)
-	{
-		delete per_frame.frameBuffer;
-		per_frame.frameBuffer = nullptr;
-	}
-
-	if (per_frame.textureView)
-	{
-		delete per_frame.textureView;
-		per_frame.textureView = nullptr;
-	}
+	// Smart pointers will automatically manage memory, no need for manual deletion
 }
 
 bool VKSurface::init_swapchain()
@@ -156,8 +140,26 @@ bool VKSurface::init_swapchain()
 		swapchain_size = surface_properties.currentExtent;
 	}
 
-	// FIFO must be supported by all implementations.
+	// Try to use mailbox mode for better performance if supported
 	VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR;
+	
+	// Get available present modes
+	uint32_t present_mode_count;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device->gpu, surface, &present_mode_count, nullptr);
+	std::vector<VkPresentModeKHR> present_modes(present_mode_count);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device->gpu, surface, &present_mode_count, present_modes.data());
+	
+	// Prefer mailbox mode for low latency
+	for (const auto& mode : present_modes) {
+		if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+			swapchain_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+			break;
+		}
+		// Otherwise try immediate mode
+		else if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+			swapchain_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+		}
+	}
 
 	// Determine the number of VkImage's to use in the swapchain.
 	// Ideally, we desire to own 1 image at a time, the rest of the images can
@@ -363,10 +365,12 @@ VkResult VKSurface::acquire_next_image()
 	{
 		vkResetCommandPool(this->device->device, device->primary_command_pool, 0);
 	}*/
-	auto commandEncoder = per_frame[current_frame_index].commandEncoder;
+	VKCommandEncoder* commandEncoder = per_frame[current_frame_index].commandEncoder.get();
 	if (commandEncoder) {
+		// Don't wait here to allow CPU-GPU parallelism
+		// Just reset the command buffer for reuse
 		commandEncoder->wait();
-		commandEncoder->reset();
+		//commandEncoder->reset();
 	}
 	// Recycle the old semaphore back into the semaphore manager.
 	VkSemaphore old_semaphore = per_frame[current_frame_index].swapchain_acquire_semaphore;
@@ -406,10 +410,11 @@ bool VKSurface::nextImage() {
 	}
 
 
-	VKCommandEncoder* cmd = per_frame[current_frame_index].commandEncoder;
+	CommandEncoder* cmd = per_frame[current_frame_index].commandEncoder.get();
 	if (!cmd) {
-		cmd = dynamic_cast<VKCommandEncoder*>(device->createCommandEncoder(CommandEncoderDesc{}));
-		per_frame[current_frame_index].commandEncoder = cmd;
+		auto baseCmd = device->createCommandEncoder(CommandEncoderDesc{});
+		auto vkcmd = arhi::dynamicCast<VKCommandEncoder>(std::move(baseCmd));
+		per_frame[current_frame_index].commandEncoder = std::move(vkcmd);
 	}
 
 	return true;
@@ -433,39 +438,39 @@ void VKSurface::present() {
 	}
 	else if (res != VK_SUCCESS)
 	{
-		MGP_ERROR("Failed to present swapchain image.\n");
+		ARHI_ERROR("Failed to present swapchain image.\n");
 	}
 }
 
-Texture* VKSurface::getCurTextureView() {
-	VKTexture* tex = per_frame[current_frame_index].textureView;
+APtr<Texture> VKSurface::getCurTextureView() {
+	APtr<VKTexture>& tex = per_frame[current_frame_index].textureView;
 	if (!tex) {
-		tex = new VKTexture();
-		tex->device = device;
-		tex->textureView = swapchain_image_views[current_frame_index];
-		//tex->framebuffer = framebuffer;
-		tex->desc.width = swapchain_dimensions.width;
-		tex->desc.height = swapchain_dimensions.height;
-		//tex->desc.format = swapchain_dimensions.format;
-		tex->frameState = &per_frame[current_frame_index];
-		per_frame[current_frame_index].textureView = tex;
+		auto newTex = makeAPtr<VKTexture>();
+		newTex->device = device;
+		newTex->textureView = swapchain_image_views[current_frame_index];
+		//newTex->framebuffer = framebuffer;
+		newTex->desc.width = swapchain_dimensions.width;
+		newTex->desc.height = swapchain_dimensions.height;
+		//newTex->desc.format = swapchain_dimensions.format;
+		newTex->frameState = &per_frame[current_frame_index];
+		tex = std::move(newTex);
+		//per_frame[current_frame_index].textureView = std::move(newTex);
 	}
-	return tex;
+	return arhi::share(tex);
 }
 CommandEncoder* VKSurface::getCurCommandEncoder() {
-	VKCommandEncoder* cmd = per_frame[current_frame_index].commandEncoder;
+	VKCommandEncoder* cmd = per_frame[current_frame_index].commandEncoder.get();
 	if (!cmd) {
-		cmd = dynamic_cast<VKCommandEncoder*>(device->createCommandEncoder(CommandEncoderDesc{}));
-		per_frame[current_frame_index].commandEncoder = cmd;
+		auto baseCmd = device->createCommandEncoder(CommandEncoderDesc{});
+		auto vkcmd = arhi::dynamicCast<VKCommandEncoder>(std::move(baseCmd));
+		cmd = vkcmd.get();
+		per_frame[current_frame_index].commandEncoder = std::move(vkcmd);
 	}
 	return cmd;
 }
-FrameBuffer* VKSurface::getCurFrameBuffer() {
-	return per_frame[current_frame_index].frameBuffer;
+APtr<FrameBuffer> VKSurface::getCurFrameBuffer() {
+	return arhi::share(per_frame[current_frame_index].frameBuffer);
 }
-void VKSurface::cacheFrameBuffer(FrameBuffer* fbo) {
-	if (per_frame[current_frame_index].frameBuffer) {
-		delete per_frame[current_frame_index].frameBuffer;
-	}
-	per_frame[current_frame_index].frameBuffer = dynamic_cast<VKFrameBuffer*>(fbo);
+void VKSurface::cacheFrameBuffer(APtr<FrameBuffer> fbo) {
+	per_frame[current_frame_index].frameBuffer = arhi::dynamicCast<VKFrameBuffer>(std::move(fbo));
 }

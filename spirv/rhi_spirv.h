@@ -7,7 +7,9 @@
 namespace arhi {
 
 bool compileGLSL(const char* source, ShaderStage stage, std::vector<uint32_t>& spirvSource);
-bool spirvReflect(std::vector<uint32_t>& spirvSource, ShaderModuleReflection& reflection);
+bool spirvReflect(std::vector<uint32_t>& spirvSource, ShaderStage stage, ShaderModuleReflection& reflection);
 
+bool spirvToWGSL(const char* source, int sourceLen, std::string& wgslCode);
+bool compileWGSL(const char* source, ShaderStage stage, std::vector<uint32_t>& spirvSource);
 }
 #endif
