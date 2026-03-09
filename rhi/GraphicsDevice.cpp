@@ -3,10 +3,17 @@
 
 using namespace arhi;
 
-GraphicsDevice* g_graphicsDevice = NULL;
+GraphicsDevice* g_graphicsDevice = nullptr;
 
 GraphicsDevice* GraphicsDevice::cur() {
 	return g_graphicsDevice;
+}
+
+void GraphicsDevice::destroy() {
+    if (g_graphicsDevice) {
+        delete g_graphicsDevice;
+        g_graphicsDevice = nullptr;
+    }
 }
 
 APtr<Pipeline> GraphicsDevice::createPipeline(const PipelineDesc& desc) {

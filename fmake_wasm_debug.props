@@ -6,7 +6,7 @@ srcDirs = rhi/, example/, webgpu/, spirv/
 excludeSrc = .*(volk.c).*
 depends = glslang 16, simple_wgsl 1
 incDirs = ./
-defines = SUPPORT_GLSL,WEBGPU,SIMPLE_WGSL
+defines = SUPPORT_GLSL,USE_WEBGPU,SIMPLE_WGSL
 
 extConfigs.cppflags = --use-port=emdawnwebgpu -g 
 

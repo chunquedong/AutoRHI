@@ -1,23 +1,7 @@
 #include <stdlib.h>
 
-#ifdef __EMSCRIPTEN__
-    #define WEBGPU_BACKEND
-#else
-    //#define OPENGL_BACKEND
-    #define VULKAN_BACKEND
-    //#define WEBGPU_BACKEND
-#endif
-
 #include "GlfwWindow.h"
-#ifdef OPENGL_BACKEND
-#include "openGL/GLDevice.h"
-#elif defined(VULKAN_BACKEND)
-#include "vulkan/VKDevice.h"
-#elif defined(WEBGPU_BACKEND)
-#include "webgpu/WGDevice.h"
-#else
 #include "rhi/GraphicsDevice.h"
-#endif
 
 using namespace arhi;
 
@@ -288,48 +272,23 @@ struct Mesh {
 
 class MainWindow : public GlfwWindow {
     APtr<Mesh> mesh = nullptr;
-    APtr<Surface> surface = nullptr;
+    
 
 public:
     ~MainWindow() {
         GraphicsDevice::cur()->waitIdle();
-#ifdef OPENGL_BACKEND
-        delete GraphicsDevice::cur();
-#endif
+        if (backend == Backend::OpenGL) {
+            GraphicsDevice::destroy();
+        }
         mesh = nullptr;
-        surface = nullptr;
-#ifndef OPENGL_BACKEND
-        delete GraphicsDevice::cur();
-#endif
     }
 
-    void onInit() {
-#ifdef OPENGL_BACKEND
-        GLDevice* device = new GLDevice();
-        device->init();
-        surface = device->createSurface(SurfaceDesc{ .width = width, .height = height, });
-#elif defined(VULKAN_BACKEND)
-        VKDevice* device = new VKDevice();
-        bool isDebug = true;
-        std::vector<const char*> extension = getRequiredExtensions();
-        auto instance = device->initInstance(extension, isDebug);
-        auto vkSurface = createSurface(instance);
-        surface = device->createSurface(SurfaceDesc{ .width = width, .height = height, .surfaceChain = vkSurface, });
-#elif defined(WEBGPU_BACKEND)
-        WGDevice* device = new WGDevice();
-        device->init();
-        surface = device->createSurface(SurfaceDesc{ .width = width, .height = height, .surfaceChain = getSurfaceChain() });
-#endif
-
+    void onInit() override {
         mesh = makeAPtr<Mesh>();
         mesh->init();
     }
 
-    void onResize(int w, int h) {
-        surface->resize(w, h);
-    }
-
-    void onFrame() {
+    void onFrame() override {
         if (!surface->nextImage()) {
             return;
         }
@@ -373,19 +332,12 @@ int main() {
     int rc = -1;
 #ifdef __EMSCRIPTEN__
     window = makeAPtr<MainWindow>();
+    rc = window->run(Backend::WebGPU);
 #else
     APtr<MainWindow> window = makeAPtr<MainWindow>();
+    rc = window->run(Backend::Vulkan);
+    //rc = window->run(Backend::OpenGL);
 #endif
 
-#ifdef OPENGL_BACKEND
-    printf("OpenGL backend\n");
-    rc = window->run(1);
-#elif defined(VULKAN_BACKEND)
-    printf("Vulkan backend\n");
-    rc = window->run(0);
-#elif defined(WEBGPU_BACKEND)
-    printf("WebGPU backend\n");
-    rc = window->run(0);
-#endif
     return rc;
 }

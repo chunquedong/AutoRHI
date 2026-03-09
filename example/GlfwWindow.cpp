@@ -50,6 +50,16 @@
 #  include <GLFW/glfw3native.h>
 #endif
 
+#if defined(USE_OPENGL)
+#include "openGL/GLDevice.h"
+#endif
+#if defined(USE_VULKAN)
+#include "vulkan/VKDevice.h"
+#endif
+#if defined(USE_WEBGPU)
+#include "webgpu/WGDevice.h"
+#endif
+
 #include <stdio.h>
 
 using namespace arhi;
@@ -66,64 +76,31 @@ static void CloseWindowCallback(GLFWwindow* window, int key, int scancode, int a
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-#ifdef VULKAN
-std::vector<const char*> GlfwWindow::getRequiredExtensions() {
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions;
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-    return extensions;
-}
-
-VkSurfaceKHR GlfwWindow::createSurface(VkInstance instance)
-{
-    if (instance == VK_NULL_HANDLE || !window)
-    {
-        return VK_NULL_HANDLE;
-    }
-
-    VkSurfaceKHR surface;
-
-
-    //VkWin32SurfaceCreateInfoKHR sci = {
-    //            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-    //            .hinstance = hwndSource->hinstance,
-    //            .hwnd = hwndSource->hwnd
-    //};
-    //vkCreateWin32SurfaceKHR
-    //(
-    //    instance->instance,
-    //    &sci,
-    //    NULL,
-    //    &ret->surface
-    //);
-
-    VkResult errCode = glfwCreateWindowSurface(instance, window, NULL, &surface);
-
-    if (errCode != VK_SUCCESS)
-    {
-        return nullptr;
-    }
-
-    return surface;
-}
-#endif
-
 static bool doFrame(double time, void* userData) {
     GlfwWindow* w = (GlfwWindow*)userData;
     w->onFrame();
     return true;
 }
 
-int GlfwWindow::run(int backend) {
+void GlfwWindow::onResize(int w, int h) {
+    surface->resize(w, h);
+}
 
+GlfwWindow::~GlfwWindow() {
+    if (GraphicsDevice::cur()) {
+        GraphicsDevice::cur()->waitIdle();
+    }
+    surface = nullptr;
+    GraphicsDevice::destroy();
+}
+
+int GlfwWindow::run(Backend backend) {
+    this->backend = backend;
     g_window = this;
 
     glfwInit();
 
-    if (backend == 1) {
+    if (backend == Backend::OpenGL) {
 #if _WIN32
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -157,7 +134,7 @@ int GlfwWindow::run(int backend) {
     /* Make the window's context current */
     glfwMakeContextCurrent(window);
 
-    if (backend == 1) {
+    if (backend == Backend::OpenGL) {
 
 #ifndef __EMSCRIPTEN__
     #ifdef GLAD
@@ -180,6 +157,7 @@ int GlfwWindow::run(int backend) {
 #endif
     }
 
+    surface = initDeviceSurface(backend);
     onInit();
     
     #ifdef __EMSCRIPTEN__
@@ -187,7 +165,7 @@ int GlfwWindow::run(int backend) {
     #else
     while(!glfwWindowShouldClose(window)){
         onFrame();
-        if (backend == 1) {
+        if (backend == Backend::OpenGL) {
             glfwSwapBuffers(window);
         }
         glfwPollEvents();
@@ -197,7 +175,78 @@ int GlfwWindow::run(int backend) {
     return 0;
 }
 
-#ifdef WEBGPU
+APtr<Surface> GlfwWindow::initDeviceSurface(Backend backend) {
+    APtr<Surface> surface;
+    if (backend == Backend::OpenGL) {
+#ifdef USE_OPENGL
+        GLDevice* device = new GLDevice();
+        device->init();
+        surface = device->createSurface(SurfaceDesc{ .width = width, .height = height, });
+        printf("OpenGL backend\n");
+#endif
+    }
+    else if (backend == Backend::Vulkan) {
+#ifdef USE_VULKAN
+        VKDevice* device = new VKDevice();
+        bool isDebug = true;
+        std::vector<const char*> extension = getRequiredExtensions();
+        auto instance = device->initInstance(extension, isDebug);
+        auto vkSurface = createVkSurface(instance);
+        surface = device->createSurface(SurfaceDesc{ .width = width, .height = height, .surfaceChain = vkSurface, });
+        printf("Vulkan backend\n");
+#endif
+    }
+    else if (backend == Backend::WebGPU) {
+#ifdef USE_WEBGPU
+        WGDevice* device = new WGDevice();
+        device->init();
+        surface = device->createSurface(SurfaceDesc{ .width = width, .height = height, .surfaceChain = getSurfaceChain() });
+        printf("WebGPU backend\n");
+#endif
+    }
+    return surface;
+}
+
+#ifdef USE_VULKAN
+std::vector<const char*> GlfwWindow::getRequiredExtensions() {
+    uint32_t glfwExtensionCount = 0;
+    const char** glfwExtensions;
+    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+    return extensions;
+}
+
+VkSurfaceKHR GlfwWindow::createVkSurface(VkInstance instance) {
+    if (instance == VK_NULL_HANDLE || !window) {
+        return VK_NULL_HANDLE;
+    }
+    VkSurfaceKHR surface;
+
+    //VkWin32SurfaceCreateInfoKHR sci = {
+    //            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+    //            .hinstance = hwndSource->hinstance,
+    //            .hwnd = hwndSource->hwnd
+    //};
+    //vkCreateWin32SurfaceKHR
+    //(
+    //    instance->instance,
+    //    &sci,
+    //    NULL,
+    //    &ret->surface
+    //);
+
+    VkResult errCode = glfwCreateWindowSurface(instance, window, NULL, &surface);
+    if (errCode != VK_SUCCESS)
+    {
+        return nullptr;
+    }
+    return surface;
+}
+#endif
+
+#ifdef USE_WEBGPU
 
 #ifdef _WIN32
 WGPUSurfaceSourceWindowsHWND surfaceChainObj;

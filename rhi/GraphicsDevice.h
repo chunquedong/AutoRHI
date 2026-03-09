@@ -341,6 +341,8 @@ struct GraphicsDevice {
      * @return Pointer to the current graphics device
      */
     static GraphicsDevice* cur();
+
+    static void destroy();
     
     virtual ~GraphicsDevice() {}
 
