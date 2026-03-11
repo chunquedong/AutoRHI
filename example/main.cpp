@@ -184,8 +184,8 @@ struct Mesh {
                 BufferLayout {
                     .stride = sizeof(float) * 4,
                     .elements = {
-                        AttributeElement {.name = "position", .offset = 0,._location = 0,},
-                        AttributeElement {.name = "uv", .offset = 2 * sizeof(float),._location = 1,  },
+                        AttributeElement {.name = "position", .offset = 0 },
+                        AttributeElement {.name = "uv", .offset = 2 * sizeof(float) },
                     },
                 }
             },
