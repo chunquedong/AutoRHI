@@ -199,7 +199,9 @@ void VKCommandEncoder::drawIndexed(uint32_t indices, uint32_t instances, uint32_
     //wgpuRenderPassEncoderDrawIndexed(renderPassEncoder, indices, instances, firstindex, baseVertex, firstinstance);
 	vkCmdDrawIndexed(commandBuffer, indices, instances, firstindex, baseVertex, firstinstance);
 }
-
+void VKCommandEncoder::draw(uint32_t vertices, uint32_t instances, uint32_t firstvertex, uint32_t firstinstance) {
+	vkCmdDraw(commandBuffer, vertices, instances, firstvertex, firstinstance);
+}
 void VKCommandEncoder::setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
 {
 	VkRect2D scissor{

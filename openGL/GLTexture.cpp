@@ -251,19 +251,17 @@ void GLTexture::setData(const void* textureData, int mipLevel, int depthOrArrayL
     size_t bpp = getBytePerPixel(desc.format);
     if (desc.type == TextureType::_2D)
     {
-        if (textureData) {
-            GL_ASSERT(glTexImage2D(GL_TEXTURE_2D, mipLevel, internalFormat, width, height, 0, ioFormat, texelType, textureData));
-        }
+        // Always allocate texture storage, even if data is null
+        GL_ASSERT(glTexImage2D(GL_TEXTURE_2D, mipLevel, internalFormat, width, height, 0, ioFormat, texelType, textureData));
         // Generate mipmaps if this is the base level and mipmap count > 1
         if (mipLevel == 0 && desc.mipLevelCount > 1) {
             GL_ASSERT(glGenerateMipmap(target));
         }
     }
     else if (desc.type == TextureType::_2DArray) {
-        if (textureData) {
-            //(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void *pixels);
-            GL_ASSERT(glTexImage3D(GL_TEXTURE_2D_ARRAY, mipLevel, internalFormat, width, height, depthOrArrayLayers, 0, ioFormat, texelType, textureData));
-        }
+        // Always allocate texture storage, even if data is null
+        //(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void *pixels);
+        GL_ASSERT(glTexImage3D(GL_TEXTURE_2D_ARRAY, mipLevel, internalFormat, width, height, depthOrArrayLayers, 0, ioFormat, texelType, textureData));
         // Generate mipmaps if this is the base level and mipmap count > 1
         if (mipLevel == 0 && desc.mipLevelCount > 1) {
             GL_ASSERT(glGenerateMipmap(target));
@@ -272,16 +270,14 @@ void GLTexture::setData(const void* textureData, int mipLevel, int depthOrArrayL
     else if (desc.type == TextureType::Cube)
     {
         // Texture Cube
-        if (textureData) {
-            const unsigned char* texturePtr = (const unsigned char*)textureData;
-            size_t faceSize = width * height * bpp;
-            
-            // Set each cube face
-            for (int face = 0; face < 6; face++) {
-                GLenum faceTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
-                const void* faceData = texturePtr + (face * faceSize);
-                GL_ASSERT(glTexImage2D(faceTarget, mipLevel, internalFormat, width, height, 0, ioFormat, texelType, faceData));
-            }
+        const unsigned char* texturePtr = (const unsigned char*)textureData;
+        size_t faceSize = width * height * bpp;
+        
+        // Set each cube face
+        for (int face = 0; face < 6; face++) {
+            GLenum faceTarget = GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
+            const void* faceData = textureData ? (texturePtr + (face * faceSize)) : nullptr;
+            GL_ASSERT(glTexImage2D(faceTarget, mipLevel, internalFormat, width, height, 0, ioFormat, texelType, faceData));
         }
         // Generate mipmaps if this is the base level and mipmap count > 1
         if (mipLevel == 0 && desc.mipLevelCount > 1) {

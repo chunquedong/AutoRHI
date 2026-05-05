@@ -299,10 +299,12 @@ struct PipelineDesc {
 
     std::vector<ColorTargetState> targets;      ///< Color target states
 
-    MultisampleState multisample = {            ///< Multisample state
-        .count = 1,
-        .mask = 0xffffffff,
-    };
+    MultisampleState multisample;               ///< Multisample state
+
+    PipelineDesc() {
+        multisample.count = 1;
+        multisample.mask = 0xffffffff;
+    }
 
     bool operator==(const PipelineDesc& other) const {
         if (label != other.label) return false;

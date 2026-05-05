@@ -171,6 +171,61 @@ void GLCommandEncoder::drawIndexed(uint32_t indices, uint32_t instances, uint32_
     }
 }
 
+void GLCommandEncoder::draw(uint32_t vertices, uint32_t instances, uint32_t firstvertex, uint32_t firstinstance) {
+    bind();
+
+    GLenum primitiveType = GL_LINES;
+    switch (curPipeline->desc.primitive.topology) {
+    case PrimitiveTopology::LineList:
+        primitiveType = GL_LINES;
+        break;
+    case PrimitiveTopology::LineStrip:
+        primitiveType = GL_LINE_STRIP;
+        break;
+    case PrimitiveTopology::PointList:
+        primitiveType = GL_POINTS;
+        break;
+    case PrimitiveTopology::TriangleList:
+        primitiveType = GL_TRIANGLES;
+        break;
+    case PrimitiveTopology::TriangleStrip:
+        primitiveType = GL_TRIANGLE_STRIP;
+        break;
+    }
+
+    if (instances > 1) {
+        if (firstinstance == 0) {
+            // Use simple instanced rendering
+            GL_ASSERT(glDrawArraysInstanced(
+                primitiveType,       // mode
+                firstvertex,         // first
+                vertices,            // count
+                instances            // instanceCount
+            ));
+        } else {
+#ifdef GLAD
+            ARHI_ERROR("Unsupport glDrawArraysInstancedBaseInstance!");
+#else
+            // Use instanced rendering with base instance
+            GL_ASSERT(glDrawArraysInstancedBaseInstance(
+                primitiveType,       // mode
+                firstvertex,         // first
+                vertices,            // count
+                instances,           // instanceCount
+                firstinstance        // baseInstance
+            ));
+#endif
+        }
+    } else {
+        // Use regular non-instanced rendering
+        GL_ASSERT(glDrawArrays(
+            primitiveType,       // mode
+            firstvertex,         // first
+            vertices             // count
+        ));
+    }
+}
+
 void GLCommandEncoder::setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
 {
     glScissor(x, y, width, height);
@@ -270,9 +325,9 @@ void GLBindingGroup::bind(GLPipeline* curPipeline)
         BindingEntry& entry = *it;
         auto found = pipeline->reflection.uniforms.find(entry.name);
         if (found == pipeline->reflection.uniforms.end()) {
-            if (!dynamic_cast<GLTexture*>(entry.resource.get())) {
-                printf("WARN: Unknow uniform %s\n", entry.name.c_str());
-            }
+            //if (!dynamic_cast<GLTexture*>(entry.resource.get())) {
+            //    printf("WARN: Unknow uniform %s\n", entry.name.c_str());
+            //}
             continue;
         }
         if (GLTexture* tex = dynamic_cast<GLTexture*>(entry.resource.get())) {
@@ -337,6 +392,9 @@ bool GLFrameBuffer::update(GLDevice* device, RenderPassDesc&& desc)
             this->draftFrameBuffer = handle;
         }
         this->frameBuffer = this->draftFrameBuffer;
+
+        GLint defaultFbo = 0;
+        GL_ASSERT(glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFbo));
         GL_ASSERT(glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer));
 
         for (int i = 0; i < desc.colorAttachments.size(); ++i) {
@@ -367,9 +425,12 @@ bool GLFrameBuffer::update(GLDevice* device, RenderPassDesc&& desc)
         GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
         {
+            GL_ASSERT(glBindFramebuffer(GL_FRAMEBUFFER, defaultFbo));
             ARHI_ERROR("Framebuffer status incomplete: 0x%x\n", fboStatus);
             return false;
         }
+
+        GL_ASSERT(glBindFramebuffer(GL_FRAMEBUFFER, defaultFbo));
     }
 
     //    if (desc.colorAttachments.size() == 0 && desc.depthStencilAttachment == nullptr) {

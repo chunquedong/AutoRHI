@@ -207,7 +207,7 @@ struct RenderPassDepthStencilAttachment {
  * Contains all properties needed to create a render pass
  */
 struct RenderPassDesc {
-    const char* label = nullptr;                                  ///< Optional label for the render pass
+    std::string label;                                             ///< Optional label for the render pass
     std::vector<RenderPassColorAttachment> colorAttachments;       ///< List of color attachments
     RenderPassDepthStencilAttachment* depthStencilAttachment = nullptr; ///< Optional depth-stencil attachment
 
@@ -225,7 +225,7 @@ struct RenderPassDesc {
     }
 
     bool operator<(const RenderPassDesc& other) const {
-        if (label != other.label) return reinterpret_cast<uintptr_t>(label) < reinterpret_cast<uintptr_t>(other.label);
+        if (label != other.label) return (label) < (other.label);
         if (colorAttachments != other.colorAttachments) return colorAttachments < other.colorAttachments;
         return reinterpret_cast<uintptr_t>(depthStencilAttachment) < reinterpret_cast<uintptr_t>(other.depthStencilAttachment);
     }
@@ -304,6 +304,8 @@ struct CommandEncoder {
      * @param firstinstance First instance index
      */
     virtual void drawIndexed(uint32_t indices, uint32_t instances, uint32_t firstindex, int32_t baseVertex, uint32_t firstinstance) = 0;
+
+    virtual void draw(uint32_t vertices, uint32_t instances, uint32_t firstvertex, uint32_t firstinstance) = 0;
 
     /**
      * Set the scissor rectangle
@@ -458,7 +460,7 @@ namespace std {
     struct hash<arhi::RenderPassDesc> {
         size_t operator()(const arhi::RenderPassDesc& desc) const {
             size_t h = 0;
-            hash_combine(h, reinterpret_cast<uintptr_t>(desc.label));
+            hash_combine(h, (desc.label));
             for (const auto& attachment : desc.colorAttachments) {
                 hash_combine(h, attachment.view);
                 hash_combine(h, static_cast<int>(attachment.loadOp));

@@ -39,7 +39,7 @@ bool WGCommandEncoder::beginPass(const RenderPassDesc& desc) {
     }
 
     WGPURenderPassDescriptor passDescritpr = {
-        .label = {.data = desc.label, .length = desc.label?strlen(desc.label):0 },
+        .label = {.data = desc.label.c_str(), .length = desc.label.size()},
         .colorAttachmentCount = colorAttachments.size(),
         .colorAttachments = colorAttachments.data(),
     };
@@ -104,7 +104,9 @@ void WGCommandEncoder::setVertexBuffer(Buffer* b, int offset, int binding) {
 void WGCommandEncoder::drawIndexed(uint32_t indices, uint32_t instances, uint32_t firstindex, int32_t baseVertex, uint32_t firstinstance) {
     wgpuRenderPassEncoderDrawIndexed(renderPassEncoder, indices, instances, firstindex, baseVertex, firstinstance);
 }
-
+void WGCommandEncoder::draw(uint32_t vertices, uint32_t instances, uint32_t firstvertex, uint32_t firstinstance) {
+    wgpuRenderPassEncoderDraw(renderPassEncoder, vertices, instances, firstvertex, firstinstance);
+}
 void WGCommandEncoder::setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
 {
     wgpuRenderPassEncoderSetScissorRect(renderPassEncoder, x, y, width, height);

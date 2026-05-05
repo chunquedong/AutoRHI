@@ -56,6 +56,7 @@ public:
     void setIndexBuffer(Buffer* buffer, int offset, IndexFormat indexFormat) override;
     void setVertexBuffer(Buffer* buffer, int offset, int binding) override;
     void drawIndexed(uint32_t indices, uint32_t instances, uint32_t firstindex, int32_t baseVertex, uint32_t firstinstance) override;
+    void draw(uint32_t vertices, uint32_t instances, uint32_t firstvertex, uint32_t firstinstance) override;
 
     void setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override;
     void setViewport(float x, float y, float width, float height, float minDepth, float maxDepth) override;
