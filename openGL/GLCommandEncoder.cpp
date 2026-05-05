@@ -249,7 +249,8 @@ void GLCommandEncoder::bind()
 
             GL_ASSERT(glEnableVertexAttribArray(attribute._location));
 
-            void* pointer = NULL;
+            unsigned char* pointer = NULL;
+            pointer += attribute.offset;
             switch (attribute._format) {
             case GL_INT:
                 //(GLuint index, GLint size, GLenum type, GLsizei stride, const void*pointer)

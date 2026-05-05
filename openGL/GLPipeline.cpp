@@ -96,7 +96,7 @@ void GLPipeline::reflect(const PipelineDesc* desc) {
 
         GLchar uniformName[128] = {};
         GLint uniformSize;
-        GLint uniformBinding;
+        GLint uniformBinding = 0;
         GLint uniformBlockIndex;
         GLint length = 128;
         unsigned int samplerIndex = 0;
@@ -123,7 +123,7 @@ void GLPipeline::reflect(const PipelineDesc* desc) {
             GL_ASSERT(uniformBlockIndex = glGetUniformBlockIndex(program, uniformName));
 
             GL_ASSERT(glGetActiveUniformBlockiv(program, i, GL_UNIFORM_BLOCK_DATA_SIZE, &uniformSize));
-            GL_ASSERT(glGetActiveUniformBlockiv(program, i, GL_UNIFORM_BLOCK_BINDING, &uniformBinding));
+            //GL_ASSERT(glGetActiveUniformBlockiv(program, i, GL_UNIFORM_BLOCK_BINDING, &uniformBinding));
 
             uniform.name = uniformName;
             uniform.binding = uniformBinding;
@@ -133,6 +133,8 @@ void GLPipeline::reflect(const PipelineDesc* desc) {
 
             GL_ASSERT(glUniformBlockBinding(program, uniformBlockIndex, uniform.binding));
             reflection.uniforms[uniform.name] = uniform;
+
+            ++uniformBinding;
         }
     }
 
@@ -213,7 +215,7 @@ void arhi::GLPipeline::applyState()
     this->applyPrimitiveState();
     this->applyDepthStencilState();
     this->applyBlendState();
-    this->applyMultisampleState();
+    //this->applyMultisampleState();
 }
 
 // Convert PrimitiveTopology to GL enum
@@ -416,20 +418,30 @@ void GLPipeline::applyDepthStencilState() {
     if (desc.depthStencil) {
         const DepthStencilState& depthStencil = *desc.depthStencil;
         
-        // Enable depth test
-        GL_ASSERT(glEnable(GL_DEPTH_TEST));
-        
-        // Set depth write
-        GL_ASSERT(glDepthMask(depthStencil.depthWriteEnabled ? GL_TRUE : GL_FALSE));
-        
-        // Set depth compare function
-        GL_ASSERT(glDepthFunc(getGLCompareFunction(depthStencil.depthCompare)));
-        
-        // Set depth bias
-        GL_ASSERT(glPolygonOffset(depthStencil.depthBiasSlopeScale, depthStencil.depthBias));
+        if (depthStencil.depthCompare != CompareFunction::Always) {
+            // Enable depth test
+            GL_ASSERT(glEnable(GL_DEPTH_TEST));
+
+            // Set depth write
+            GL_ASSERT(glDepthMask(depthStencil.depthWriteEnabled ? GL_TRUE : GL_FALSE));
+            
+            // Set depth compare function
+            GL_ASSERT(glDepthFunc(getGLCompareFunction(depthStencil.depthCompare)));
+            
+            // Set depth bias
+            GL_ASSERT(glPolygonOffset(depthStencil.depthBiasSlopeScale, depthStencil.depthBias));
+        }
+        else {
+            GL_ASSERT(glDisable(GL_DEPTH_TEST));
+        }
         
         // Enable stencil test
-        if (depthStencil.stencilReadMask != 0 || depthStencil.stencilWriteMask != 0) {
+        if (depthStencil.stencilFront.compare != CompareFunction::Always 
+            || depthStencil.stencilFront.passOp != arhi::StencilOperation::Keep
+            || depthStencil.stencilFront.failOp != arhi::StencilOperation::Keep
+            || depthStencil.stencilBack.compare != CompareFunction::Always
+            || depthStencil.stencilBack.passOp != arhi::StencilOperation::Keep
+            || depthStencil.stencilBack.failOp != arhi::StencilOperation::Keep) {
             GL_ASSERT(glEnable(GL_STENCIL_TEST));
             
             // Set stencil read/write mask

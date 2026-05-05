@@ -359,10 +359,21 @@ bool VKPipeline::init(VKDevice* adevice, const PipelineDesc* desc) {
     // Set up depth stencil state from DepthStencilState.
     VkPipelineDepthStencilStateCreateInfo depth_stencil{};
     depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth_stencil.depthTestEnable = desc->depthStencil != nullptr;
+    depth_stencil.depthTestEnable = desc->depthStencil && desc->depthStencil->depthCompare != CompareFunction::Always;
     depth_stencil.depthWriteEnable = desc->depthStencil ? desc->depthStencil->depthWriteEnabled : false;
     depth_stencil.depthCompareOp = desc->depthStencil ? getVkCompareFunction(desc->depthStencil->depthCompare) : VK_COMPARE_OP_LESS;
-    depth_stencil.stencilTestEnable = desc->depthStencil != nullptr && (desc->depthStencil->stencilReadMask != 0 || desc->depthStencil->stencilWriteMask != 0);
+
+    if (desc->depthStencil != nullptr && (desc->depthStencil->stencilFront.compare != CompareFunction::Always 
+            || desc->depthStencil->stencilFront.passOp != arhi::StencilOperation::Keep
+            || desc->depthStencil->stencilFront.failOp != arhi::StencilOperation::Keep
+            || desc->depthStencil->stencilBack.compare != CompareFunction::Always
+            || desc->depthStencil->stencilBack.passOp != arhi::StencilOperation::Keep
+            || desc->depthStencil->stencilBack.failOp != arhi::StencilOperation::Keep)) {
+        depth_stencil.stencilTestEnable = true;
+    }
+    else {
+        depth_stencil.stencilTestEnable = false;
+    }
     depth_stencil.front.failOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilFront.failOp) : VK_STENCIL_OP_KEEP;
     depth_stencil.front.passOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilFront.passOp) : VK_STENCIL_OP_KEEP;
     depth_stencil.front.depthFailOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilFront.depthFailOp) : VK_STENCIL_OP_KEEP;
