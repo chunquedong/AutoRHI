@@ -45,17 +45,17 @@ bool WGCommandEncoder::beginPass(const RenderPassDesc& desc) {
     };
 
     WGPURenderPassDepthStencilAttachment depthStencelAttachment = {};
-    if (desc.depthStencilAttachment) {
+    if (desc.hasDepthStencilAttachment) {
         depthStencelAttachment = {
-            .view = dynamic_cast<WGTexture*>(desc.depthStencilAttachment->view.get())->textureView,
-            .depthLoadOp = (WGPULoadOp)desc.depthStencilAttachment->depthLoadOp,
-            .depthStoreOp = (WGPUStoreOp)desc.depthStencilAttachment->depthStoreOp,
-            .depthClearValue = desc.depthStencilAttachment->depthClearValue,
-            .depthReadOnly = desc.depthStencilAttachment->depthReadOnly,
-            .stencilLoadOp = (WGPULoadOp)desc.depthStencilAttachment->stencilLoadOp,
-            .stencilStoreOp = (WGPUStoreOp)desc.depthStencilAttachment->stencilStoreOp,
-            .stencilClearValue = (uint32_t)desc.depthStencilAttachment->stencilClearValue,
-            .stencilReadOnly = (uint32_t)desc.depthStencilAttachment->stencilReadOnly,
+            .view = dynamic_cast<WGTexture*>(desc.depthStencilAttachment.view.get())->textureView,
+            .depthLoadOp = (WGPULoadOp)desc.depthStencilAttachment.depthLoadOp,
+            .depthStoreOp = (WGPUStoreOp)desc.depthStencilAttachment.depthStoreOp,
+            .depthClearValue = desc.depthStencilAttachment.depthClearValue,
+            .depthReadOnly = desc.depthStencilAttachment.depthReadOnly,
+            .stencilLoadOp = (WGPULoadOp)desc.depthStencilAttachment.stencilLoadOp,
+            .stencilStoreOp = (WGPUStoreOp)desc.depthStencilAttachment.stencilStoreOp,
+            .stencilClearValue = (uint32_t)desc.depthStencilAttachment.stencilClearValue,
+            .stencilReadOnly = (uint32_t)desc.depthStencilAttachment.stencilReadOnly,
         };
         passDescritpr.depthStencilAttachment = &depthStencelAttachment;
     }

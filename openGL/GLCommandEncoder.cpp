@@ -36,14 +36,14 @@ bool GLCommandEncoder::beginPass(FrameBuffer* aframeBuffer) {
         }
     }
 
-    if (desc.depthStencilAttachment) {
-        if (desc.depthStencilAttachment->depthLoadOp == LoadOp::Clear) {
+    if (desc.hasDepthStencilAttachment) {
+        if (desc.depthStencilAttachment.depthLoadOp == LoadOp::Clear) {
             clearBits |= GL_DEPTH_BUFFER_BIT;
-            GL_ASSERT(glClearDepth(desc.depthStencilAttachment->depthClearValue));
+            GL_ASSERT(glClearDepth(desc.depthStencilAttachment.depthClearValue));
         }
-        if (desc.depthStencilAttachment->stencilLoadOp == LoadOp::Clear) {
+        if (desc.depthStencilAttachment.stencilLoadOp == LoadOp::Clear) {
             clearBits |= GL_STENCIL_BUFFER_BIT;
-            GL_ASSERT(glClearStencil(desc.depthStencilAttachment->stencilClearValue));
+            GL_ASSERT(glClearStencil(desc.depthStencilAttachment.stencilClearValue));
         }
     }
 
@@ -377,7 +377,7 @@ bool GLFrameBuffer::update(GLDevice* device, RenderPassDesc&& desc)
         }
     }
     if (surface) {
-        if (desc.colorAttachments.size() != 1 || desc.depthStencilAttachment != nullptr) {
+        if (desc.colorAttachments.size() != 1 || desc.hasDepthStencilAttachment) {
             ARHI_ERROR("Surface Unsupport MulitTarget Render\n");
             return false;
         }
@@ -404,8 +404,8 @@ bool GLFrameBuffer::update(GLDevice* device, RenderPassDesc&& desc)
             GL_ASSERT(glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textureView->targetType, textureView->texture, 0));
         }
 
-        if (desc.depthStencilAttachment) {
-            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.depthStencilAttachment->view.get());
+        if (desc.hasDepthStencilAttachment) {
+            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.depthStencilAttachment.view.get());
 
             GLenum attachment = GL_DEPTH_STENCIL_ATTACHMENT;
             if (textureView->desc.format == TextureFormat::Depth24PlusStencil8)
@@ -456,8 +456,8 @@ void GLFrameBuffer::resetDraftFrameBuffer()
             GL_ASSERT(glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textureView->targetType, 0, 0));
         }
 
-        if (desc.depthStencilAttachment) {
-            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.depthStencilAttachment->view.get());
+        if (desc.hasDepthStencilAttachment) {
+            GLTexture* textureView = dynamic_cast<GLTexture*>(desc.depthStencilAttachment.view.get());
 
             GLenum attachment = GL_DEPTH_STENCIL_ATTACHMENT;
             if (textureView->desc.format == TextureFormat::Depth24PlusStencil8)

@@ -129,8 +129,8 @@ bool WGPipeline::init(WGDevice* adevice, const PipelineDesc* desc) {
         WGPUColorTargetState wgState = {};
         wgState.format = (WGPUTextureFormat)state.format;
         wgState.writeMask = (WGPUColorWriteMask)state.writeMask;
-        if (state.blend) {
-            blendState = *((WGPUBlendState*)state.blend);
+        if (state.blendEnabled) {
+            blendState = *((WGPUBlendState*)&state.blend);
             wgState.blend = &blendState;
         }
         colorTargetState.push_back(wgState);
@@ -148,30 +148,56 @@ bool WGPipeline::init(WGDevice* adevice, const PipelineDesc* desc) {
     // Set up depth stencil state if provided
     WGPUDepthStencilState depthStencilState = {};
     WGPUDepthStencilState* pDepthStencilState = nullptr;
-    
-    if (desc->depthStencil) {
-        const DepthStencilState& ds = *desc->depthStencil;
-        depthStencilState.format = (WGPUTextureFormat)ds.format;
+
+    const DepthStencilState& ds = desc->depthStencil;
+    depthStencilState.format = (WGPUTextureFormat)ds.format;
+    if (desc->depthStencil.depthTestEnabled) {
         depthStencilState.depthWriteEnabled = ds.depthWriteEnabled ? WGPUOptionalBool_True : WGPUOptionalBool_False;
         depthStencilState.depthCompare = (WGPUCompareFunction)ds.depthCompare;
+    }
+    else {
+        depthStencilState.depthWriteEnabled = WGPUOptionalBool_False;
+        depthStencilState.depthCompare = WGPUCompareFunction_Less;
+    }
+    if (desc->depthStencil.depthTestEnabled) {
         depthStencilState.depthBias = ds.depthBias;
         depthStencilState.depthBiasSlopeScale = ds.depthBiasSlopeScale;
         depthStencilState.depthBiasClamp = ds.depthBiasClamp;
+    }
+    else {
+        depthStencilState.depthBias = 0;
+        depthStencilState.depthBiasSlopeScale = 0;
+        depthStencilState.depthBiasClamp = 0;
+    }
+    if (desc->depthStencil.stencilTestEnabled) {
         depthStencilState.stencilReadMask = ds.stencilReadMask;
         depthStencilState.stencilWriteMask = ds.stencilWriteMask;
-        
+
         depthStencilState.stencilFront.compare = (WGPUCompareFunction)ds.stencilFront.compare;
         depthStencilState.stencilFront.failOp = (WGPUStencilOperation)ds.stencilFront.failOp;
         depthStencilState.stencilFront.depthFailOp = (WGPUStencilOperation)ds.stencilFront.depthFailOp;
         depthStencilState.stencilFront.passOp = (WGPUStencilOperation)ds.stencilFront.passOp;
-        
+
         depthStencilState.stencilBack.compare = (WGPUCompareFunction)ds.stencilBack.compare;
         depthStencilState.stencilBack.failOp = (WGPUStencilOperation)ds.stencilBack.failOp;
         depthStencilState.stencilBack.depthFailOp = (WGPUStencilOperation)ds.stencilBack.depthFailOp;
         depthStencilState.stencilBack.passOp = (WGPUStencilOperation)ds.stencilBack.passOp;
-        
-        pDepthStencilState = &depthStencilState;
     }
+    else {
+        depthStencilState.stencilReadMask = ds.stencilReadMask;
+        depthStencilState.stencilWriteMask = ds.stencilWriteMask;
+        depthStencilState.stencilFront.compare = WGPUCompareFunction_Always;
+        depthStencilState.stencilFront.failOp = WGPUStencilOperation_Keep;
+        depthStencilState.stencilFront.depthFailOp = WGPUStencilOperation_Keep;
+        depthStencilState.stencilFront.passOp = WGPUStencilOperation_Keep;
+
+        depthStencilState.stencilBack.compare = WGPUCompareFunction_Always;
+        depthStencilState.stencilBack.failOp = WGPUStencilOperation_Keep;
+        depthStencilState.stencilBack.depthFailOp = WGPUStencilOperation_Keep;
+        depthStencilState.stencilBack.passOp = WGPUStencilOperation_Keep;
+    }
+
+    pDepthStencilState = &depthStencilState;
 
     // Render Pipeline
     WGPURenderPipelineDescriptor rpdesc = {};

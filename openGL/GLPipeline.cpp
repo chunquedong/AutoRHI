@@ -408,70 +408,57 @@ void GLPipeline::applyPrimitiveState() {
     //GL_ASSERT(glPolygonMode(GL_FRONT_AND_BACK, getGLPolygonMode(primitive.polygonMode)));
     
     // Set depth bias
-    if (desc.depthStencil) {
-        GL_ASSERT(glPolygonOffset(desc.depthStencil->depthBiasSlopeScale, desc.depthStencil->depthBias));
+    if (desc.depthStencil.depthBiasEnabled) {
+        GL_ASSERT(glPolygonOffset(desc.depthStencil.depthBiasSlopeScale, desc.depthStencil.depthBias));
     }
 }
 
 // Apply DepthStencilState
 void GLPipeline::applyDepthStencilState() {
-    if (desc.depthStencil) {
-        const DepthStencilState& depthStencil = *desc.depthStencil;
-        
-        if (depthStencil.depthCompare != CompareFunction::Always) {
-            // Enable depth test
-            GL_ASSERT(glEnable(GL_DEPTH_TEST));
+    if (desc.depthStencil.depthTestEnabled) {
+        // Enable depth test
+        GL_ASSERT(glEnable(GL_DEPTH_TEST));
 
-            // Set depth write
-            GL_ASSERT(glDepthMask(depthStencil.depthWriteEnabled ? GL_TRUE : GL_FALSE));
-            
-            // Set depth compare function
-            GL_ASSERT(glDepthFunc(getGLCompareFunction(depthStencil.depthCompare)));
-            
-            // Set depth bias
-            GL_ASSERT(glPolygonOffset(depthStencil.depthBiasSlopeScale, depthStencil.depthBias));
-        }
-        else {
-            GL_ASSERT(glDisable(GL_DEPTH_TEST));
-        }
-        
-        // Enable stencil test
-        if (depthStencil.stencilFront.compare != CompareFunction::Always 
-            || depthStencil.stencilFront.passOp != arhi::StencilOperation::Keep
-            || depthStencil.stencilFront.failOp != arhi::StencilOperation::Keep
-            || depthStencil.stencilBack.compare != CompareFunction::Always
-            || depthStencil.stencilBack.passOp != arhi::StencilOperation::Keep
-            || depthStencil.stencilBack.failOp != arhi::StencilOperation::Keep) {
-            GL_ASSERT(glEnable(GL_STENCIL_TEST));
-            
-            // Set stencil read/write mask
-            GL_ASSERT(glStencilMask(depthStencil.stencilWriteMask));
-            
-            // Set front face stencil state
-            GL_ASSERT(glStencilFuncSeparate(GL_FRONT, 
-                                           getGLCompareFunction(depthStencil.stencilFront.compare), 
-                                           0, 
-                                           depthStencil.stencilReadMask));
-            GL_ASSERT(glStencilOpSeparate(GL_FRONT, 
-                                         getGLStencilOperation(depthStencil.stencilFront.failOp), 
-                                         getGLStencilOperation(depthStencil.stencilFront.depthFailOp), 
-                                         getGLStencilOperation(depthStencil.stencilFront.passOp)));
-            
-            // Set back face stencil state
-            GL_ASSERT(glStencilFuncSeparate(GL_BACK, 
-                                           getGLCompareFunction(depthStencil.stencilBack.compare), 
-                                           0, 
-                                           depthStencil.stencilReadMask));
-            GL_ASSERT(glStencilOpSeparate(GL_BACK, 
-                                         getGLStencilOperation(depthStencil.stencilBack.failOp), 
-                                         getGLStencilOperation(depthStencil.stencilBack.depthFailOp), 
-                                         getGLStencilOperation(depthStencil.stencilBack.passOp)));
-        } else {
-            GL_ASSERT(glDisable(GL_STENCIL_TEST));
-        }
-    } else {
-        // Disable depth and stencil test
+        // Set depth write
+        GL_ASSERT(glDepthMask(desc.depthStencil.depthWriteEnabled ? GL_TRUE : GL_FALSE));
+
+        // Set depth compare function
+        GL_ASSERT(glDepthFunc(getGLCompareFunction(desc.depthStencil.depthCompare)));
+
+        // Set depth bias
+        GL_ASSERT(glPolygonOffset(desc.depthStencil.depthBiasSlopeScale, desc.depthStencil.depthBias));
+    }
+    else {
         GL_ASSERT(glDisable(GL_DEPTH_TEST));
+    }
+
+    if (desc.depthStencil.stencilTestEnabled) {
+        GL_ASSERT(glEnable(GL_STENCIL_TEST));
+
+        // Set stencil read/write mask
+        GL_ASSERT(glStencilMask(desc.depthStencil.stencilWriteMask));
+
+        // Set front face stencil state
+        GL_ASSERT(glStencilFuncSeparate(GL_FRONT,
+            getGLCompareFunction(desc.depthStencil.stencilFront.compare),
+            0,
+            desc.depthStencil.stencilReadMask));
+        GL_ASSERT(glStencilOpSeparate(GL_FRONT,
+            getGLStencilOperation(desc.depthStencil.stencilFront.failOp),
+            getGLStencilOperation(desc.depthStencil.stencilFront.depthFailOp),
+            getGLStencilOperation(desc.depthStencil.stencilFront.passOp)));
+
+        // Set back face stencil state
+        GL_ASSERT(glStencilFuncSeparate(GL_BACK,
+            getGLCompareFunction(desc.depthStencil.stencilBack.compare),
+            0,
+            desc.depthStencil.stencilReadMask));
+        GL_ASSERT(glStencilOpSeparate(GL_BACK,
+            getGLStencilOperation(desc.depthStencil.stencilBack.failOp),
+            getGLStencilOperation(desc.depthStencil.stencilBack.depthFailOp),
+            getGLStencilOperation(desc.depthStencil.stencilBack.passOp)));
+    }
+    else {
         GL_ASSERT(glDisable(GL_STENCIL_TEST));
     }
 }
@@ -514,8 +501,8 @@ void GLPipeline::applyBlendState() {
         }
 
         // Set blend state
-        if (target.blend) {
-            const BlendState& blend = *target.blend;
+        if (target.blendEnabled) {
+            const BlendState& blend = target.blend;
 
             // Enable blending
             GL_ASSERT(glEnable(GL_BLEND));

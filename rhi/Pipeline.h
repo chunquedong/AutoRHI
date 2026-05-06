@@ -162,6 +162,28 @@ struct BlendComponent {
 struct BlendState {
     BlendComponent color;   ///< Color blend component
     BlendComponent alpha;   ///< Alpha blend component
+
+    bool operator==(const BlendState& other) const {
+        return color.operation == other.color.operation &&
+               color.srcFactor == other.color.srcFactor &&
+               color.dstFactor == other.color.dstFactor &&
+               alpha.operation == other.alpha.operation &&
+               alpha.srcFactor == other.alpha.srcFactor &&
+               alpha.dstFactor == other.alpha.dstFactor;
+    }
+
+    bool operator!=(const BlendState& other) const {
+        return !(*this == other);
+    }
+
+    bool operator<(const BlendState& other) const {
+        if (color.operation != other.color.operation) return static_cast<int>(color.operation) < static_cast<int>(other.color.operation);
+        if (color.srcFactor != other.color.srcFactor) return static_cast<int>(color.srcFactor) < static_cast<int>(other.color.srcFactor);
+        if (color.dstFactor != other.color.dstFactor) return static_cast<int>(color.dstFactor) < static_cast<int>(other.color.dstFactor);
+        if (alpha.operation != other.alpha.operation) return static_cast<int>(alpha.operation) < static_cast<int>(other.alpha.operation);
+        if (alpha.srcFactor != other.alpha.srcFactor) return static_cast<int>(alpha.srcFactor) < static_cast<int>(other.alpha.srcFactor);
+        return static_cast<int>(alpha.dstFactor) < static_cast<int>(other.alpha.dstFactor);
+    }
 };
 
 /**
@@ -177,7 +199,8 @@ struct ColorTargetState {
     static const int WriteMask_All = 0x000000000000000F;    ///< All channels write mask
 
     TextureFormat format = TextureFormat::BGRA8Unorm;    ///< Texture format
-    const BlendState* blend = nullptr;                  ///< Blend state
+    bool blendEnabled = false;
+    BlendState blend;                  ///< Blend state
     int writeMask = WriteMask_All;                     ///< Write mask
 
     bool operator==(const ColorTargetState& other) const {
@@ -188,7 +211,7 @@ struct ColorTargetState {
 
     bool operator<(const ColorTargetState& other) const {
         if (format != other.format) return static_cast<int>(format) < static_cast<int>(other.format);
-        if (blend != other.blend) return reinterpret_cast<uintptr_t>(blend) < reinterpret_cast<uintptr_t>(other.blend);
+        if (blend != other.blend) return blend < other.blend;
         return writeMask < other.writeMask;
     }
 };
@@ -260,16 +283,69 @@ struct StencilFaceState {
  */
 struct DepthStencilState {
     TextureFormat format;                ///< Depth stencil format
+    bool depthTestEnabled = false;
     bool depthWriteEnabled = true;              ///< Whether depth writing is enabled
     CompareFunction depthCompare;        ///< Depth compare function
 
+    bool stencilTestEnabled = false;
     StencilFaceState stencilFront;       ///< Front face stencil state
     StencilFaceState stencilBack;        ///< Back face stencil state
     uint32_t stencilReadMask;            ///< Stencil read mask
     uint32_t stencilWriteMask;           ///< Stencil write mask
+
+    bool depthBiasEnabled = false;
     int32_t depthBias;                   ///< Depth bias
     float depthBiasSlopeScale;           ///< Depth bias slope scale
     float depthBiasClamp;                ///< Depth bias clamp
+
+    bool operator==(const DepthStencilState& other) const {
+        if (format != other.format) return false;
+        if (depthTestEnabled != other.depthTestEnabled) return false;
+        if (depthWriteEnabled != other.depthWriteEnabled) return false;
+        if (depthCompare != other.depthCompare) return false;
+        if (stencilTestEnabled != other.stencilTestEnabled) return false;
+        if (stencilFront.compare != other.stencilFront.compare) return false;
+        if (stencilFront.failOp != other.stencilFront.failOp) return false;
+        if (stencilFront.depthFailOp != other.stencilFront.depthFailOp) return false;
+        if (stencilFront.passOp != other.stencilFront.passOp) return false;
+        if (stencilBack.compare != other.stencilBack.compare) return false;
+        if (stencilBack.failOp != other.stencilBack.failOp) return false;
+        if (stencilBack.depthFailOp != other.stencilBack.depthFailOp) return false;
+        if (stencilBack.passOp != other.stencilBack.passOp) return false;
+        if (stencilReadMask != other.stencilReadMask) return false;
+        if (stencilWriteMask != other.stencilWriteMask) return false;
+        if (depthBiasEnabled != other.depthBiasEnabled) return false;
+        if (depthBias != other.depthBias) return false;
+        if (depthBiasSlopeScale != other.depthBiasSlopeScale) return false;
+        if (depthBiasClamp != other.depthBiasClamp) return false;
+        return true;
+    }
+
+    bool operator!=(const DepthStencilState& other) const {
+        return !(*this == other);
+    }
+
+    bool operator<(const DepthStencilState& other) const {
+        if (format != other.format) return static_cast<int>(format) < static_cast<int>(other.format);
+        if (depthTestEnabled != other.depthTestEnabled) return depthTestEnabled < other.depthTestEnabled;
+        if (depthWriteEnabled != other.depthWriteEnabled) return depthWriteEnabled < other.depthWriteEnabled;
+        if (depthCompare != other.depthCompare) return static_cast<int>(depthCompare) < static_cast<int>(other.depthCompare);
+        if (stencilTestEnabled != other.stencilTestEnabled) return stencilTestEnabled < other.stencilTestEnabled;
+        if (stencilFront.compare != other.stencilFront.compare) return static_cast<int>(stencilFront.compare) < static_cast<int>(other.stencilFront.compare);
+        if (stencilFront.failOp != other.stencilFront.failOp) return static_cast<int>(stencilFront.failOp) < static_cast<int>(other.stencilFront.failOp);
+        if (stencilFront.depthFailOp != other.stencilFront.depthFailOp) return static_cast<int>(stencilFront.depthFailOp) < static_cast<int>(other.stencilFront.depthFailOp);
+        if (stencilFront.passOp != other.stencilFront.passOp) return static_cast<int>(stencilFront.passOp) < static_cast<int>(other.stencilFront.passOp);
+        if (stencilBack.compare != other.stencilBack.compare) return static_cast<int>(stencilBack.compare) < static_cast<int>(other.stencilBack.compare);
+        if (stencilBack.failOp != other.stencilBack.failOp) return static_cast<int>(stencilBack.failOp) < static_cast<int>(other.stencilBack.failOp);
+        if (stencilBack.depthFailOp != other.stencilBack.depthFailOp) return static_cast<int>(stencilBack.depthFailOp) < static_cast<int>(other.stencilBack.depthFailOp);
+        if (stencilBack.passOp != other.stencilBack.passOp) return static_cast<int>(stencilBack.passOp) < static_cast<int>(other.stencilBack.passOp);
+        if (stencilReadMask != other.stencilReadMask) return stencilReadMask < other.stencilReadMask;
+        if (stencilWriteMask != other.stencilWriteMask) return stencilWriteMask < other.stencilWriteMask;
+        if (depthBiasEnabled != other.depthBiasEnabled) return depthBiasEnabled < other.depthBiasEnabled;
+        if (depthBias != other.depthBias) return depthBias < other.depthBias;
+        if (depthBiasSlopeScale != other.depthBiasSlopeScale) return depthBiasSlopeScale < other.depthBiasSlopeScale;
+        return depthBiasClamp < other.depthBiasClamp;
+    }
 };
 
 /**
@@ -295,16 +371,13 @@ struct PipelineDesc {
 
     PrimitiveState primitive;                   ///< Primitive state
 
-    DepthStencilState* depthStencil = nullptr;  ///< Depth stencil state
+    DepthStencilState depthStencil;  ///< Depth stencil state
 
     std::vector<ColorTargetState> targets;      ///< Color target states
 
-    MultisampleState multisample;               ///< Multisample state
-
-    PipelineDesc() {
-        multisample.count = 1;
-        multisample.mask = 0xffffffff;
-    }
+    MultisampleState multisample = {            ///< Multisample state
+        1, 0xffffffff, false
+    };
 
     bool operator==(const PipelineDesc& other) const {
         if (label != other.label) return false;
@@ -326,7 +399,7 @@ struct PipelineDesc {
         if (memcmp(&primitive, &other.primitive, sizeof(PrimitiveState)) != 0) {
             return memcmp(&primitive, &other.primitive, sizeof(PrimitiveState)) < 0;
         }
-        if (depthStencil != other.depthStencil) return reinterpret_cast<uintptr_t>(depthStencil) < reinterpret_cast<uintptr_t>(other.depthStencil);
+        if (depthStencil != other.depthStencil) return depthStencil < other.depthStencil;
         if (targets != other.targets) return targets < other.targets;
         return memcmp(&multisample, &other.multisample, sizeof(MultisampleState)) < 0;
     }
@@ -449,6 +522,88 @@ namespace std {
     };
 
     template<>
+    struct hash<arhi::BlendComponent> {
+        size_t operator()(const arhi::BlendComponent& comp) const {
+            size_t h = 0;
+            hash_combine(h, static_cast<int>(comp.operation));
+            hash_combine(h, static_cast<int>(comp.srcFactor));
+            hash_combine(h, static_cast<int>(comp.dstFactor));
+            return h;
+        }
+
+    private:
+        template<typename T>
+        void hash_combine(size_t& seed, const T& v) const {
+            std::hash<T> hasher;
+            seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+    };
+
+    template<>
+    struct hash<arhi::BlendState> {
+        size_t operator()(const arhi::BlendState& state) const {
+            size_t h = 0;
+            hash_combine(h, state.color);
+            hash_combine(h, state.alpha);
+            return h;
+        }
+
+    private:
+        template<typename T>
+        void hash_combine(size_t& seed, const T& v) const {
+            std::hash<T> hasher;
+            seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+    };
+
+    template<>
+    struct hash<arhi::StencilFaceState> {
+        size_t operator()(const arhi::StencilFaceState& state) const {
+            size_t h = 0;
+            hash_combine(h, static_cast<int>(state.compare));
+            hash_combine(h, static_cast<int>(state.failOp));
+            hash_combine(h, static_cast<int>(state.depthFailOp));
+            hash_combine(h, static_cast<int>(state.passOp));
+            return h;
+        }
+
+    private:
+        template<typename T>
+        void hash_combine(size_t& seed, const T& v) const {
+            std::hash<T> hasher;
+            seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+    };
+
+    template<>
+    struct hash<arhi::DepthStencilState> {
+        size_t operator()(const arhi::DepthStencilState& state) const {
+            size_t h = 0;
+            hash_combine(h, static_cast<int>(state.format));
+            hash_combine(h, state.depthTestEnabled);
+            hash_combine(h, state.depthWriteEnabled);
+            hash_combine(h, static_cast<int>(state.depthCompare));
+            hash_combine(h, state.stencilTestEnabled);
+            hash_combine(h, state.stencilFront);
+            hash_combine(h, state.stencilBack);
+            hash_combine(h, state.stencilReadMask);
+            hash_combine(h, state.stencilWriteMask);
+            hash_combine(h, state.depthBiasEnabled);
+            hash_combine(h, state.depthBias);
+            hash_combine(h, state.depthBiasSlopeScale);
+            hash_combine(h, state.depthBiasClamp);
+            return h;
+        }
+
+    private:
+        template<typename T>
+        void hash_combine(size_t& seed, const T& v) const {
+            std::hash<T> hasher;
+            seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+    };
+
+    template<>
     struct hash<arhi::BufferLayout> {
         size_t operator()(const arhi::BufferLayout& layout) const {
             size_t h = 0;
@@ -473,7 +628,7 @@ namespace std {
         size_t operator()(const arhi::ColorTargetState& state) const {
             size_t h = 0;
             hash_combine(h, static_cast<int>(state.format));
-            hash_combine(h, reinterpret_cast<uintptr_t>(state.blend));
+            hash_combine(h, state.blend);
             hash_combine(h, state.writeMask);
             return h;
         }
@@ -510,10 +665,10 @@ namespace std {
             hash_combine(h, static_cast<int>(desc.primitive.cullMode));
             hash_combine(h, desc.primitive.unclippedDepth);
             //hash_combine(h, static_cast<int>(desc.primitive.polygonMode));
-            hash_combine(h, reinterpret_cast<uintptr_t>(desc.depthStencil));
+            hash_combine(h, desc.depthStencil);
             for (const auto& target : desc.targets) {
                 hash_combine(h, static_cast<int>(target.format));
-                hash_combine(h, reinterpret_cast<uintptr_t>(target.blend));
+                hash_combine(h, target.blend);
                 hash_combine(h, target.writeMask);
             }
             hash_combine(h, desc.multisample.count);

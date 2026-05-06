@@ -189,6 +189,10 @@ struct RenderPassDepthStencilAttachment {
         return stencilReadOnly == other.stencilReadOnly;
     }
 
+    bool operator!=(const RenderPassDepthStencilAttachment& other) const {
+        return !(*this == other);
+    }
+
     bool operator<(const RenderPassDepthStencilAttachment& other) const {
         if (view != other.view) return view < other.view;
         if (depthLoadOp != other.depthLoadOp) return static_cast<int>(depthLoadOp) < static_cast<int>(other.depthLoadOp);
@@ -209,7 +213,8 @@ struct RenderPassDepthStencilAttachment {
 struct RenderPassDesc {
     std::string label;                                             ///< Optional label for the render pass
     std::vector<RenderPassColorAttachment> colorAttachments;       ///< List of color attachments
-    RenderPassDepthStencilAttachment* depthStencilAttachment = nullptr; ///< Optional depth-stencil attachment
+    bool hasDepthStencilAttachment = false;
+    RenderPassDepthStencilAttachment depthStencilAttachment; ///< Optional depth-stencil attachment
 
     RenderPassDesc() = default;
     RenderPassDesc(const RenderPassDesc&) = delete;
@@ -227,7 +232,7 @@ struct RenderPassDesc {
     bool operator<(const RenderPassDesc& other) const {
         if (label != other.label) return (label) < (other.label);
         if (colorAttachments != other.colorAttachments) return colorAttachments < other.colorAttachments;
-        return reinterpret_cast<uintptr_t>(depthStencilAttachment) < reinterpret_cast<uintptr_t>(other.depthStencilAttachment);
+        return depthStencilAttachment < other.depthStencilAttachment;
     }
 };
 
@@ -457,6 +462,30 @@ namespace std {
     };
 
     template<>
+    struct hash<arhi::RenderPassDepthStencilAttachment> {
+        size_t operator()(const arhi::RenderPassDepthStencilAttachment& attachment) const {
+            size_t h = 0;
+            hash_combine(h, attachment.view);
+            hash_combine(h, static_cast<int>(attachment.depthLoadOp));
+            hash_combine(h, static_cast<int>(attachment.depthStoreOp));
+            hash_combine(h, attachment.depthClearValue);
+            hash_combine(h, attachment.depthReadOnly);
+            hash_combine(h, static_cast<int>(attachment.stencilLoadOp));
+            hash_combine(h, static_cast<int>(attachment.stencilStoreOp));
+            hash_combine(h, attachment.stencilClearValue);
+            hash_combine(h, attachment.stencilReadOnly);
+            return h;
+        }
+
+    private:
+        template<typename T>
+        void hash_combine(size_t& seed, const T& v) const {
+            std::hash<T> hasher;
+            seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+    };
+
+    template<>
     struct hash<arhi::RenderPassDesc> {
         size_t operator()(const arhi::RenderPassDesc& desc) const {
             size_t h = 0;
@@ -469,7 +498,7 @@ namespace std {
                     hash_combine(h, attachment.clearValue[i]);
                 }
             }
-            hash_combine(h, reinterpret_cast<uintptr_t>(desc.depthStencilAttachment));
+            hash_combine(h, desc.depthStencilAttachment);
             return h;
         }
 

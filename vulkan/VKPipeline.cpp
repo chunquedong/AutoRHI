@@ -336,11 +336,19 @@ bool VKPipeline::init(VKDevice* adevice, const PipelineDesc* desc) {
     raster.cullMode = getVkCullMode(desc->primitive.cullMode);
     raster.frontFace = getVkFrontFace(desc->primitive.frontFace);
     raster.lineWidth = 1.0f;
-    raster.depthBiasEnable = desc->depthStencil != nullptr;
-    raster.depthBiasConstantFactor = desc->depthStencil ? desc->depthStencil->depthBias : 0.0f;
-    raster.depthBiasSlopeFactor = desc->depthStencil ? desc->depthStencil->depthBiasSlopeScale : 0.0f;
-    raster.depthBiasClamp = desc->depthStencil ? desc->depthStencil->depthBiasClamp : 0.0f;
 
+    if (desc->depthStencil.depthBiasEnabled) {
+        raster.depthBiasEnable = true;
+        raster.depthBiasConstantFactor = desc->depthStencil.depthBias;
+        raster.depthBiasSlopeFactor = desc->depthStencil.depthBiasSlopeScale;
+        raster.depthBiasClamp = desc->depthStencil.depthBiasClamp;
+    }
+    else {
+        raster.depthBiasEnable = false;
+        raster.depthBiasConstantFactor = 0;
+        raster.depthBiasSlopeFactor = 0;
+        raster.depthBiasClamp = 0;
+    }
     // Our attachment will write to all color channels, but no blending is enabled.
     VkPipelineColorBlendAttachmentState blend_attachment{};
     blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -359,37 +367,44 @@ bool VKPipeline::init(VKDevice* adevice, const PipelineDesc* desc) {
     // Set up depth stencil state from DepthStencilState.
     VkPipelineDepthStencilStateCreateInfo depth_stencil{};
     depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth_stencil.depthTestEnable = desc->depthStencil && desc->depthStencil->depthCompare != CompareFunction::Always;
-    depth_stencil.depthWriteEnable = desc->depthStencil ? desc->depthStencil->depthWriteEnabled : false;
-    depth_stencil.depthCompareOp = desc->depthStencil ? getVkCompareFunction(desc->depthStencil->depthCompare) : VK_COMPARE_OP_LESS;
+    if (desc->depthStencil.depthTestEnabled) {
+        depth_stencil.depthTestEnable = true;
+        depth_stencil.depthWriteEnable = desc->depthStencil.depthWriteEnabled;
+        depth_stencil.depthCompareOp = getVkCompareFunction(desc->depthStencil.depthCompare);
+    }
+    else {
+        depth_stencil.depthTestEnable = false;
+        depth_stencil.depthWriteEnable = false;
+        depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    }
 
-    if (desc->depthStencil != nullptr && (desc->depthStencil->stencilFront.compare != CompareFunction::Always 
-            || desc->depthStencil->stencilFront.passOp != arhi::StencilOperation::Keep
-            || desc->depthStencil->stencilFront.failOp != arhi::StencilOperation::Keep
-            || desc->depthStencil->stencilBack.compare != CompareFunction::Always
-            || desc->depthStencil->stencilBack.passOp != arhi::StencilOperation::Keep
-            || desc->depthStencil->stencilBack.failOp != arhi::StencilOperation::Keep)) {
+    if (desc->depthStencil.stencilTestEnabled) {
         depth_stencil.stencilTestEnable = true;
+        depth_stencil.front.failOp = getVkStencilOperation(desc->depthStencil.stencilFront.failOp);
+        depth_stencil.front.passOp = getVkStencilOperation(desc->depthStencil.stencilFront.passOp);
+        depth_stencil.front.depthFailOp = getVkStencilOperation(desc->depthStencil.stencilFront.depthFailOp);
+        depth_stencil.front.compareOp = getVkCompareFunction(desc->depthStencil.stencilFront.compare);
+        depth_stencil.back.failOp = getVkStencilOperation(desc->depthStencil.stencilBack.failOp);
+        depth_stencil.back.passOp = getVkStencilOperation(desc->depthStencil.stencilBack.passOp);
+        depth_stencil.back.depthFailOp = getVkStencilOperation(desc->depthStencil.stencilBack.depthFailOp);
+        depth_stencil.back.compareOp = getVkCompareFunction(desc->depthStencil.stencilBack.compare);
     }
     else {
         depth_stencil.stencilTestEnable = false;
+        depth_stencil.front.failOp = VK_STENCIL_OP_KEEP;
+        depth_stencil.front.passOp = VK_STENCIL_OP_KEEP;
+        depth_stencil.front.depthFailOp = VK_STENCIL_OP_KEEP;
+        depth_stencil.front.compareOp = VK_COMPARE_OP_ALWAYS;
+        depth_stencil.back.failOp = VK_STENCIL_OP_KEEP;
+        depth_stencil.back.passOp = VK_STENCIL_OP_KEEP;
+        depth_stencil.back.depthFailOp = VK_STENCIL_OP_KEEP;
+        depth_stencil.back.compareOp =  VK_COMPARE_OP_ALWAYS;
     }
-    depth_stencil.front.failOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilFront.failOp) : VK_STENCIL_OP_KEEP;
-    depth_stencil.front.passOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilFront.passOp) : VK_STENCIL_OP_KEEP;
-    depth_stencil.front.depthFailOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilFront.depthFailOp) : VK_STENCIL_OP_KEEP;
-    depth_stencil.front.compareOp = desc->depthStencil ? getVkCompareFunction(desc->depthStencil->stencilFront.compare) : VK_COMPARE_OP_ALWAYS;
-    depth_stencil.back.failOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilBack.failOp) : VK_STENCIL_OP_KEEP;
-    depth_stencil.back.passOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilBack.passOp) : VK_STENCIL_OP_KEEP;
-    depth_stencil.back.depthFailOp = desc->depthStencil ? getVkStencilOperation(desc->depthStencil->stencilBack.depthFailOp) : VK_STENCIL_OP_KEEP;
-    depth_stencil.back.compareOp = desc->depthStencil ? getVkCompareFunction(desc->depthStencil->stencilBack.compare) : VK_COMPARE_OP_ALWAYS;
     depth_stencil.maxDepthBounds = 1.0f;
-
-    if (desc->depthStencil) {
-        depth_stencil.front.compareMask = desc->depthStencil->stencilReadMask;
-        depth_stencil.front.writeMask = desc->depthStencil->stencilWriteMask;
-        depth_stencil.back.compareMask = desc->depthStencil->stencilReadMask;
-        depth_stencil.back.writeMask = desc->depthStencil->stencilWriteMask;
-    }
+    depth_stencil.front.compareMask = desc->depthStencil.stencilReadMask;
+    depth_stencil.front.writeMask = desc->depthStencil.stencilWriteMask;
+    depth_stencil.back.compareMask = desc->depthStencil.stencilReadMask;
+    depth_stencil.back.writeMask = desc->depthStencil.stencilWriteMask;
 
     // Set up multisample state from MultisampleState.
     VkPipelineMultisampleStateCreateInfo multisample{};
